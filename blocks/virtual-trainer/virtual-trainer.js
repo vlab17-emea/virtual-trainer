@@ -1,0 +1,764 @@
+/**
+ * Virtual Trainer Block
+ * EDS block that renders a full-bleed AI-powered course assistant.
+ *
+ * DA authoring — add as a table on your page:
+ * | virtual-trainer |                              |
+ * | collection      | <yukon-collection-id>        |
+ * | course          | EDS Document Authoring       |
+ *
+ * Config:
+ *  IMAGE_BASE_URL — set to your .aem.live URL once screenshots are in /assets
+ *  callAPI()      — currently wired to Anthropic for testing;
+ *                   swap for Yukon inference when onboarding is complete
+ */
+
+/* ── Image base URL ──────────────────────────────────────────────────────────
+   Set to your live URL once screenshots are uploaded to /assets.
+   e.g. 'https://main--virtual-trainer--vlab17-emea.aem.live'
+   Leave empty to show labelled placeholders instead.                       */
+const IMAGE_BASE_URL = '';
+
+/* ── API ─────────────────────────────────────────────────────────────────────
+   TODO: replace body with Yukon inference endpoint when onboarding complete */
+async function callAPI(messages, systemPrompt) {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1000,
+      system: systemPrompt,
+      messages: messages.map((m) => ({ role: m.role, content: m.content })),
+    }),
+  });
+  const data = await res.json();
+  return data.content?.[0]?.text || 'Sorry, something went wrong. Please try again.';
+}
+
+/* ── Image map ───────────────────────────────────────────────────────────── */
+function ph(label, w = 520, h = 260) {
+  return `https://placehold.co/${w}x${h}/f4f4f4/aaaaaa?text=${encodeURIComponent(label)}`;
+}
+
+function imgUrl(path, label, w, h) {
+  return IMAGE_BASE_URL ? `${IMAGE_BASE_URL}/${path}` : ph(label, w, h);
+}
+
+const IMAGES = {
+  'da-home': imgUrl('modules/m2-authoring/assets/3.png', 'DA Live home screen', 520, 260),
+  'correct-org': imgUrl('modules/m2-authoring/assets/correct-org-da.png', 'Check organisation', 280, 140),
+  'new-menu': imgUrl('modules/m2-authoring/assets/new.png', 'New breadcrumb menu', 420, 180),
+  'create-folder': imgUrl('modules/m2-authoring/assets/create_folder.png', 'Create folder dialog', 520, 220),
+  'surfing-page': imgUrl('modules/m2-authoring/assets/surfing_in_bali_page.png', 'New document opened', 520, 260),
+  'set-h1': imgUrl('modules/m2-authoring/assets/set_h1.png', 'Setting Heading 1', 360, 200),
+  'add-link': imgUrl('modules/m2-authoring/assets/add_link.png', 'Insert Link dialog', 500, 220),
+  'add-block': imgUrl('modules/m3-blocks/assets/add_block.png', 'Adding a block via Edit Menu', 520, 240),
+  'select-block': imgUrl('modules/m3-blocks/assets/selected-block.png', 'Block selected', 520, 220),
+  'lib-blocks': imgUrl('modules/m3-blocks/assets/library_blocks.png', 'Library Blocks panel', 320, 280),
+  'lib-content': imgUrl('modules/m3-blocks/assets/blocks_with_content.png', 'Block with sample content', 480, 220),
+  'slash-menu': imgUrl('modules/m3-blocks/assets/add_block_with_slash.png', 'Slash menu inline', 220, 180),
+  'gap-fix': imgUrl('modules/m3-blocks/assets/close_tables.png', 'Clicking margin to create gap', 320, 200),
+  'new-row': imgUrl('modules/m3-blocks/assets/new_row.png', 'Insert new row', 300, 180),
+  'delete-table': imgUrl('modules/m3-blocks/assets/delete_table.png', 'Delete Table icon', 480, 200),
+  'hero-lib': imgUrl('modules/m3-blocks/assets/library.png', 'Library in Edit Menu', 320, 260),
+  'hero-block': imgUrl('modules/m3-blocks/assets/hero_standard.png', 'Hero block inserted', 480, 220),
+  'hero-preview': imgUrl('modules/m3-blocks/assets/hero_preview.png', 'Auto-block hero preview', 480, 240),
+  'preview-btn': imgUrl('modules/m4-publishing/assets/preview.png', 'Preview button', 360, 180),
+  airplane: imgUrl('modules/m4-publishing/assets/airplane.png', 'Action Area icon', 200, 120),
+  preflight: imgUrl('modules/m4-publishing/assets/preflight.png', 'Preflight check', 360, 200),
+  sidekick: imgUrl('modules/m4-publishing/assets/sidekick_bar.png', 'AEM Sidekick toolbar', 480, 160),
+  unpublish: imgUrl('modules/m4-publishing/assets/unpublish.png', 'Unpublish confirmation', 360, 180),
+  'version-btn': imgUrl('modules/m4-publishing/assets/version_button.png', 'Versions icon', 260, 120),
+  timeline: imgUrl('modules/m4-publishing/assets/timeline.png', 'Document timeline', 200, 260),
+  restore: imgUrl('modules/m4-publishing/assets/restore_7_1.png', 'Restore version', 400, 200),
+  'folder-status': imgUrl('modules/m4-publishing/assets/status_preview_7_1.png', 'Folder status row', 520, 180),
+  'bali-beach': imgUrl('modules/m5-media/assets/bali_beach.png', 'Bali beach in assets', 420, 220),
+  'paste-beach': imgUrl('modules/m5-media/assets/paste_bali_beach.png', 'Pasted image', 520, 240),
+  'aem-assets': imgUrl('modules/m5-media/assets/open_aem_assets.png', 'AEM Assets overlay', 520, 280),
+  'select-asset': imgUrl('modules/m5-media/assets/select_asset.png', 'Selecting an asset', 520, 280),
+  'surf-preview': imgUrl('modules/m5-media/assets/preview_surf.png', 'Video preview', 520, 220),
+  'embed-done': imgUrl('modules/m5-media/assets/embed_completed.png', 'Completed embed block', 520, 240),
+  'section-break': imgUrl('modules/m6-metadata/assets/sectionbreak.png', 'Section break', 520, 180),
+  'metadata-blk': imgUrl('modules/m6-metadata/assets/metadata.png', 'Metadata block', 520, 220),
+  'copy-tmpl': imgUrl('modules/m7-reuse/assets/copy_template.png', 'Copy template', 520, 200),
+  rename: imgUrl('modules/m7-reuse/assets/rename.png', 'Rename document', 520, 200),
+  disclaimer: imgUrl('modules/m7-reuse/assets/disclaimer.png', 'Publish fragment', 520, 220),
+  'skiing-doc': imgUrl('modules/m7-reuse/assets/skiinginchamonix.png', 'Skiing doc with fragment', 520, 280),
+};
+
+/* ── Course structure ────────────────────────────────────────────────────── */
+const MODULES = [
+  {
+    id: 'm1',
+    title: 'Basic Authoring',
+    sections: ['Access DA', 'Create a Page', 'Add Content'],
+  },
+  {
+    id: 'm2',
+    title: 'Blocks & Document Structure',
+    sections: [
+      'Add and Delete the Columns Block',
+      'Add a Block from the Library',
+      'Use the Slash Menu',
+      'Create Space Between Blocks',
+      'Edit Menu Block Tools',
+      'Search Library and Add a Hero Block',
+      'Create a Hero Auto-Block',
+    ],
+  },
+  {
+    id: 'm3',
+    title: 'Preview & Publishing',
+    sections: [
+      'Explore Live Preview',
+      'Preflight Check',
+      'Preview the Page',
+      'AEM Sidekick (Optional)',
+      'Publish the Document',
+      'Unpublish the Document',
+      'Timeline and Versioning',
+      'Folder Status View',
+    ],
+  },
+  {
+    id: 'm4',
+    title: 'Media & Assets',
+    sections: [
+      'Drag-and-Drop Images',
+      'Images from the assets Folder',
+      'AEM Assets Images',
+      'Embed Block for Video',
+    ],
+  },
+  {
+    id: 'm5',
+    title: 'Pages, URLs & Metadata',
+    sections: ['Add a Metadata Block'],
+  },
+  {
+    id: 'm6',
+    title: 'Reusable Content',
+    sections: [
+      'Create a Document from a Template',
+      'Update the Article',
+      'Include a Fragment',
+      'Publish and Verify',
+    ],
+  },
+];
+
+const RESOURCES = [
+  {
+    icon: '🌐',
+    label: 'DA Live',
+    url: 'https://da.live',
+  },
+  {
+    icon: '📖',
+    label: 'EDS Documentation',
+    url: 'https://www.aem.live/docs',
+  },
+  {
+    icon: '🔧',
+    label: 'AEM Sidekick',
+    url: 'https://www.aem.live/docs/sidekick',
+  },
+  {
+    icon: '📁',
+    label: 'Exercise Files',
+    url: '#',
+  },
+];
+
+/* ── System prompt ───────────────────────────────────────────────────────── */
+function buildSystemPrompt(courseName) {
+  const courseContent = `
+EDS DOCUMENT AUTHORING FOR AUTHORS — Activity Guide
+
+When a step has a screenshot include it using: ![description](url)
+
+MODULE 1: BASIC AUTHORING
+Section: Access DA
+Step 1 — Navigate to https://da.live → show: ![DA Live home screen](${IMAGES['da-home']})
+Step 2 — Login via Sign In link (top right) with instructor credentials
+Step 3 — Click account logo, confirm Organisation → show: ![Check organisation](${IMAGES['correct-org']})
+
+Section: Create a Page
+Step 1 — Enter site URL (da.live/org/da-getting-started) in browser
+Step 2 — Open the "enablement" directory
+Step 3 — Breadcrumb > new > folder → show: ![New breadcrumb menu](${IMAGES['new-menu']})
+Step 4 — Enter initial + name (e.g. jbrown), Create folder → show: ![Create folder dialog](${IMAGES['create-folder']})
+Step 5 — Click folder > new > Document, enter "Surfing in Bali"
+Step 6 — Create document → show: ![New document opened](${IMAGES['surfing-page']})
+
+Section: Add Content
+Step 1 — Type "Surfing in Bali" at top of document
+Step 2 — Select text > Edit Menu > Edit Text > Heading 1 → show: ![Setting Heading 1](${IMAGES['set-h1']})
+Step 3 — Add body paragraph. Paste tip: Ctrl+Shift+V (Win) or Cmd+Shift+V (Mac)
+Step 4 — Edit Menu > Insert Link → show: ![Insert Link dialog](${IMAGES['add-link']})
+
+MODULE 2: BLOCKS AND DOCUMENT STRUCTURE
+Section: Add and Delete the Columns Block
+Step 1 — Delete the title (cursor stays)
+Step 2 — Edit Menu > Block → show: ![Adding a block via Edit Menu](${IMAGES['add-block']})
+Step 3 — Hover header, click square icon, press Delete → show: ![Block selected](${IMAGES['select-block']})
+
+Section: Add a Block from the Library
+Step 1 — Edit Menu > Library > Blocks > Columns → show: ![Library Blocks panel](${IMAGES['lib-blocks']})
+Step 2 — Library blocks arrive with sample content → show: ![Block with sample content](${IMAGES['lib-content']})
+
+Section: Use the Slash Menu
+Step 1 — Under the block type "/" — inline menu appears
+Step 2 — Type "bl", select Block → show: ![Slash menu inline](${IMAGES['slash-menu']})
+
+Section: Create Space Between Blocks
+Step 1 — Two adjacent blocks — no cursor between them
+Step 2 — Click in the MARGIN of lower block → show: ![Clicking margin to create gap](${IMAGES['gap-fix']})
+
+Section: Edit Menu Block Tools
+Step 1 — Cursor in block cell, hover Edit Menu — table tools appear
+Step 2 — Insert a new row → show: ![Insert new row](${IMAGES['new-row']})
+Step 3 — Edit Menu > Edit Block > Delete Table → show: ![Delete Table icon](${IMAGES['delete-table']})
+
+Section: Search Library and Add a Hero Block
+Step 1 — Edit Menu > Library → show: ![Library in Edit Menu](${IMAGES['hero-lib']})
+Step 2 — Search "hero", click result → show: ![Hero block inserted](${IMAGES['hero-block']})
+Step 3 — Click Preview button (top right)
+
+Section: Create a Hero Auto-Block
+Step 1 — Delete the hero block
+Step 2 — Drag hero_surfing.png to top of document
+Step 3 — Below image add H1 "Surfing in Bali"
+Step 4 — Preview — Hero renders automatically → show: ![Auto-block hero preview](${IMAGES['hero-preview']})
+
+MODULE 3: PREVIEW AND PUBLISHING
+Section: Explore Live Preview
+Step 1 — Open surfing-in-bali, use inline preview → show: ![Preview button](${IMAGES['preview-btn']})
+Step 2 — Add second H1 "a truly heroic activity!", explore preview sizes
+
+Section: Preflight Check
+Step 1 — Click blue paper airplane (Action Area, top right) → show: ![Action Area icon](${IMAGES.airplane})
+Step 2 — Open Preflight — warning: more than one H1 → show: ![Preflight check](${IMAGES.preflight})
+Step 3 — Change second H1 to H2, run preflight — warning gone
+
+Section: Preview the Page
+Step 1 — Action Area > Preview — EDS preview in new tab
+Step 2 — URL ends in .aem.page; path mirrors DA structure
+
+Section: AEM Sidekick (Optional)
+Step 1 — Install from https://www.aem.live/docs/sidekick
+Step 2 — Toggle sidekick → show: ![AEM Sidekick toolbar](${IMAGES.sidekick})
+
+Section: Publish the Document
+Step 1 — DA.live > Action Area > Publish
+Step 2 — Live page opens on .aem.live
+
+Section: Unpublish the Document
+Step 1 — Action Area > Unpublish → show: ![Unpublish confirmation](${IMAGES.unpublish})
+Step 2 — Type YES to confirm
+
+Section: Timeline and Versioning
+Step 1 — Click versions icon → show: ![Versions icon](${IMAGES['version-btn']})
+Step 2 — See timeline → show: ![Document timeline](${IMAGES.timeline})
+Step 3 — Click "+ Now" to create named version
+Step 4 — Restore: version > green arrow > Restore → show: ![Restore version](${IMAGES.restore})
+
+Section: Folder Status View
+Step 1 — Use breadcrumb to return to folder
+Step 2 — Click ellipsis next to document → show: ![Folder status row](${IMAGES['folder-status']})
+Step 3 — Status refers to LATEST version only
+
+MODULE 4: MEDIA AND ASSETS
+Section: Drag-and-Drop Images
+Step 1 — Drag image files directly from filesystem into document
+
+Section: Images from the assets Folder
+Step 1 — Navigate to /assets in project root → show: ![Bali beach in assets](${IMAGES['bali-beach']})
+Step 2 — Open bali_beach, copy (right-click or Ctrl+C / Cmd+C)
+Step 3 — Delete hero image, paste bali_beach → show: ![Pasted image](${IMAGES['paste-beach']})
+NOTE: Copy only — source changes won't appear here
+
+Section: AEM Assets Images
+Step 1 — Delete image in Hero, cursor in empty space
+Step 2 — Library > AEM Assets → show: ![AEM Assets overlay](${IMAGES['aem-assets']})
+Step 3 — wknd shared > en > magazine > san-diego-surfing, select → show: ![Selecting an asset](${IMAGES['select-asset']})
+NOTE: AEM Assets images are live references
+
+Section: Embed Block for Video
+Step 1 — /assets > surf-video.mp4 > Preview → show: ![Video preview](${IMAGES['surf-preview']})
+Step 2 — Copy preview URL
+Step 3 — Library > Blocks > embed, paste video URL, add hero image
+Step 4 — Check result → show: ![Completed embed block](${IMAGES['embed-done']})
+
+MODULE 5: PAGES, URLS, AND METADATA
+Section: Add a Metadata Block
+Step 1 — End of doc, type --- on empty line → show: ![Section break](${IMAGES['section-break']})
+Step 2 — Insert columns block, rename to "metadata" → show: ![Metadata block](${IMAGES['metadata-blk']})
+Step 3 — Add: title, description, robots | noindex,nofollow
+Step 4 — Preview, Publish, verify in page source (Cmd/Ctrl+U)
+
+MODULE 6: REUSABLE CONTENT
+Section: Create a Document from a Template
+Step 1 — /templates > article-template > copy (purple Actions Bar) → show: ![Copy template](${IMAGES['copy-tmpl']})
+Step 2 — Navigate to your folder, paste (purple Actions Bar)
+Step 3 — Rename to "Skiing in Chamonix" → show: ![Rename document](${IMAGES.rename})
+
+Section: Update the Article
+Step 1 — Open Skiing in Chamonix, change title and text
+Step 2 — Update metadata: title and description
+Step 3 — Click Preview
+
+Section: Include a Fragment
+Step 1 — /fragments/fragment-disclaimer > publish > copy live URL → show: ![Publish fragment](${IMAGES.disclaimer})
+Step 2 — Return to Skiing in Chamonix, add --- for new section
+Step 3 — Insert Fragment block, paste fragment URL → show: ![Skiing doc with fragment](${IMAGES['skiing-doc']})
+
+Section: Publish and Verify
+Step 1 — Preview then Publish Skiing in Chamonix
+Step 2 — Confirm: metadata applied, fragment appears on live page
+`;
+
+  return `You are an Adobe Virtual Trainer guiding a student through the "${courseName}" hands-on activity guide. You are warm, encouraging, and practical.
+
+Your approach:
+- Walk through exercises ONE STEP AT A TIME — never dump all steps at once
+- Present each step in plain, friendly language
+- After each step, pause and check: ask if completed or if there are questions
+- When the student confirms done or says ready, move to the next step
+- When a step has a screenshot, include it using: ![description](url)
+- Only show ONE image per response unless comparing two things
+- Use encouraging language: "Nice work!", "Exactly right", "Good question"
+- Keep responses concise — 2-4 sentences per step
+
+${courseContent}`;
+}
+
+/* ── Markdown renderer ───────────────────────────────────────────────────── */
+function renderMarkdown(raw) {
+  const el = document.createElement('span');
+  const parts = raw.split(/(!\[[^\]]*\]\([^)]+\))/g);
+  parts.forEach((part) => {
+    const imgMatch = part.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+    if (imgMatch) {
+      const image = document.createElement('img');
+      image.src = imgMatch[2];
+      image.alt = imgMatch[1];
+      image.onerror = () => { image.style.display = 'none'; };
+      el.appendChild(image);
+    } else {
+      const span = document.createElement('span');
+      span.innerHTML = part
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/(?<!\*)\*([^*\n]+)\*(?!\*)/g, '<em>$1</em>')
+        .replace(/`([^`\n]+)`/g, '<code>$1</code>')
+        .replace(/\n/g, '<br>');
+      el.appendChild(span);
+    }
+  });
+  return el;
+}
+
+/* ── SVG helpers ─────────────────────────────────────────────────────────── */
+const NS = 'http://www.w3.org/2000/svg';
+
+function svgEl(tag, attrs) {
+  const el = document.createElementNS(NS, tag);
+  Object.entries(attrs).forEach(([k, v]) => el.setAttribute(k, v));
+  return el;
+}
+
+function svgAdobeA() {
+  const svg = svgEl('svg', { width: '26', height: '20', viewBox: '0 0 26 20', fill: 'none' });
+  svg.appendChild(svgEl('path', { d: 'M15.6 0H26L10.4 20H0L15.6 0Z', fill: 'white' }));
+  svg.appendChild(svgEl('path', { d: 'M10.4 0H0V20L10.4 0Z', fill: 'rgba(255,255,255,0.5)' }));
+  return svg;
+}
+
+function svgPerson(size) {
+  const s = size * 0.52;
+  const svg = svgEl('svg', { width: s, height: s, viewBox: '0 0 24 24', fill: 'none' });
+  svg.appendChild(svgEl('circle', { cx: '12', cy: '8', r: '4', fill: 'white' }));
+  svg.appendChild(svgEl('path', {
+    d: 'M4 20c0-4 3.6-7 8-7s8 3 8 7',
+    stroke: 'white',
+    'stroke-width': '2.2',
+    'stroke-linecap': 'round',
+  }));
+  return svg;
+}
+
+function svgChevron() {
+  const svg = svgEl('svg', { width: '11', height: '11', viewBox: '0 0 12 12', fill: 'none' });
+  svg.classList.add('vt-chevron');
+  svg.appendChild(svgEl('path', {
+    d: 'M4 2.5L7.5 6L4 9.5',
+    stroke: '#aaa',
+    'stroke-width': '1.5',
+    'stroke-linecap': 'round',
+    'stroke-linejoin': 'round',
+  }));
+  return svg;
+}
+
+function svgSend(active) {
+  const color = active ? 'white' : '#bbb';
+  const svg = svgEl('svg', { width: '15', height: '15', viewBox: '0 0 24 24', fill: 'none' });
+  svg.appendChild(svgEl('path', { d: 'M22 2L11 13', stroke: color, 'stroke-width': '2', 'stroke-linecap': 'round' }));
+  svg.appendChild(svgEl('path', {
+    d: 'M22 2L15 22L11 13L2 9L22 2Z',
+    stroke: color,
+    'stroke-width': '2',
+    'stroke-linecap': 'round',
+    'stroke-linejoin': 'round',
+  }));
+  return svg;
+}
+
+function makeTrainerAvatar(size) {
+  const div = document.createElement('div');
+  div.className = `vt-trainer-avatar${size === 28 ? ' small' : ''}`;
+  div.appendChild(svgPerson(size));
+  return div;
+}
+
+/* ── Block entry point ───────────────────────────────────────────────────── */
+export default function decorate(block) {
+  /* ── Read config from block table ── */
+  const config = {};
+  [...block.children].forEach((row) => {
+    const [keyEl, valueEl] = [...row.children];
+    if (keyEl && valueEl) {
+      config[keyEl.textContent.trim().toLowerCase()] = valueEl.textContent.trim();
+    }
+  });
+
+  const courseName = config.course || 'Adobe Training Course';
+  const systemPrompt = buildSystemPrompt(courseName);
+
+  /* ── State ── */
+  const state = {
+    messages: [{
+      role: 'assistant',
+      content: `Welcome! I\'m your Adobe Virtual Trainer for **${courseName}**.\n\nI\'ll guide you through each exercise one step at a time, with screenshots alongside each step.\n\nReady to start with Module 1? Or jump to any section using the panel on the left.`,
+    }],
+    loading: false,
+    openModules: { m1: true },
+  };
+
+  /* ── DOM refs — declared here so inner functions can reference them ── */
+  let messagesEl;
+  let chipsEl;
+  let textarea;
+  let sendBtn;
+  let activeSectionEl;
+
+  /* ── Helper functions ── */
+  function appendMessage(msg) {
+    const row = document.createElement('div');
+    row.className = `vt-message ${msg.role}`;
+    if (msg.role === 'assistant') row.appendChild(makeTrainerAvatar(28));
+    const bubble = document.createElement('div');
+    bubble.className = `vt-bubble ${msg.role}`;
+    if (msg.role === 'assistant') {
+      bubble.appendChild(renderMarkdown(msg.content));
+    } else {
+      bubble.textContent = msg.content;
+    }
+    row.appendChild(bubble);
+    messagesEl.appendChild(row);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function showTyping() {
+    const row = document.createElement('div');
+    row.className = 'vt-typing';
+    row.id = 'vt-typing';
+    row.appendChild(makeTrainerAvatar(28));
+    const dots = document.createElement('div');
+    dots.className = 'vt-typing-dots';
+    for (let i = 0; i < 3; i += 1) {
+      const d = document.createElement('div');
+      d.className = 'vt-dot';
+      dots.appendChild(d);
+    }
+    row.appendChild(dots);
+    messagesEl.appendChild(row);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function hideTyping() {
+    document.getElementById('vt-typing')?.remove();
+  }
+
+  function updateSendBtn() {
+    const active = textarea.value.trim().length > 0 && !state.loading;
+    sendBtn.classList.toggle('active', active);
+    sendBtn.innerHTML = '';
+    sendBtn.appendChild(svgSend(active));
+  }
+
+  async function sendChat(actualContent, displayContent) {
+    if (state.loading) return;
+    const display = displayContent || actualContent;
+    state.messages.push({ role: 'user', content: actualContent });
+    appendMessage({ role: 'user', content: display });
+    chipsEl.style.display = 'none';
+    state.loading = true;
+    showTyping();
+    updateSendBtn();
+    try {
+      const text = await callAPI(state.messages, systemPrompt);
+      state.messages.push({ role: 'assistant', content: text });
+      hideTyping();
+      appendMessage({ role: 'assistant', content: text });
+    } catch {
+      hideTyping();
+      appendMessage({ role: 'assistant', content: 'Connection issue — please try again in a moment.' });
+    }
+    state.loading = false;
+    updateSendBtn();
+  }
+
+  function send() {
+    const text = textarea.value.trim();
+    if (!text || state.loading) return;
+    textarea.value = '';
+    textarea.style.height = 'auto';
+    updateSendBtn();
+    sendChat(text);
+  }
+
+  function navigateToSection(moduleTitle, sectionTitle, secEl) {
+    document.querySelectorAll('.vt-section').forEach((s) => s.classList.remove('active'));
+    secEl.classList.add('active');
+    activeSectionEl.textContent = `📍 ${moduleTitle} > ${sectionTitle}`;
+    activeSectionEl.classList.add('visible');
+    sendChat(
+      `[Student navigated to: ${moduleTitle} → ${sectionTitle}] Please guide me through this section step by step, including screenshots where relevant.`,
+      `Take me to: ${moduleTitle} → ${sectionTitle}`,
+    );
+  }
+
+  /* ── Build DOM ── */
+  block.innerHTML = '';
+
+  /* Header */
+  const header = document.createElement('div');
+  header.className = 'vt-header';
+  const wordmark = document.createElement('div');
+  wordmark.className = 'vt-wordmark';
+  wordmark.appendChild(svgAdobeA());
+  const wmSpan = document.createElement('span');
+  wmSpan.textContent = 'Adobe';
+  wordmark.appendChild(wmSpan);
+  const divider = document.createElement('div');
+  divider.className = 'vt-header-divider';
+  const headerTitle = document.createElement('div');
+  headerTitle.className = 'vt-header-title';
+  headerTitle.textContent = 'Virtual Trainer';
+  const headerMeta = document.createElement('div');
+  headerMeta.className = 'vt-header-meta';
+  const headerCourse = document.createElement('div');
+  headerCourse.className = 'vt-header-course';
+  headerCourse.textContent = courseName;
+  const userAvatar = document.createElement('div');
+  userAvatar.className = 'vt-avatar';
+  userAvatar.textContent = 'JD';
+  headerMeta.appendChild(headerCourse);
+  headerMeta.appendChild(userAvatar);
+  header.appendChild(wordmark);
+  header.appendChild(divider);
+  header.appendChild(headerTitle);
+  header.appendChild(headerMeta);
+
+  /* Body */
+  const body = document.createElement('div');
+  body.className = 'vt-body';
+
+  /* Left panel */
+  const left = document.createElement('div');
+  left.className = 'vt-left';
+
+  const courseInfo = document.createElement('div');
+  courseInfo.className = 'vt-course-info';
+  const courseLabel = document.createElement('div');
+  courseLabel.className = 'vt-course-label';
+  courseLabel.textContent = 'Activity Guide';
+  const courseTitle = document.createElement('div');
+  courseTitle.className = 'vt-course-title';
+  courseTitle.textContent = courseName;
+  const courseSub = document.createElement('div');
+  courseSub.className = 'vt-course-sub';
+  courseSub.textContent = `for Authors · ${MODULES.length} modules`;
+  courseInfo.appendChild(courseLabel);
+  courseInfo.appendChild(courseTitle);
+  courseInfo.appendChild(courseSub);
+
+  const moduleList = document.createElement('div');
+  moduleList.className = 'vt-module-list';
+
+  MODULES.forEach((mod, mi) => {
+    const modEl = document.createElement('div');
+    modEl.className = 'vt-module';
+
+    const modHeader = document.createElement('div');
+    modHeader.className = 'vt-module-header';
+
+    const modLeft = document.createElement('div');
+    modLeft.className = 'vt-module-header-left';
+    const num = document.createElement('div');
+    num.className = 'vt-module-number';
+    num.textContent = mi + 1;
+    const name = document.createElement('div');
+    name.className = 'vt-module-name';
+    name.textContent = mod.title;
+    modLeft.appendChild(num);
+    modLeft.appendChild(name);
+
+    const chevron = svgChevron();
+    if (state.openModules[mod.id]) chevron.classList.add('open');
+
+    modHeader.appendChild(modLeft);
+    modHeader.appendChild(chevron);
+
+    const sections = document.createElement('div');
+    sections.className = `vt-sections${state.openModules[mod.id] ? ' open' : ''}`;
+
+    mod.sections.forEach((sec) => {
+      const secEl = document.createElement('div');
+      secEl.className = 'vt-section';
+      secEl.textContent = sec;
+      secEl.addEventListener('click', () => navigateToSection(mod.title, sec, secEl));
+      sections.appendChild(secEl);
+    });
+
+    modHeader.addEventListener('click', () => {
+      state.openModules[mod.id] = !state.openModules[mod.id];
+      sections.classList.toggle('open', state.openModules[mod.id]);
+      chevron.classList.toggle('open', state.openModules[mod.id]);
+    });
+
+    modEl.appendChild(modHeader);
+    modEl.appendChild(sections);
+    moduleList.appendChild(modEl);
+  });
+
+  const resources = document.createElement('div');
+  resources.className = 'vt-resources';
+  const resLabel = document.createElement('div');
+  resLabel.className = 'vt-resources-label';
+  resLabel.textContent = 'Resources';
+  resources.appendChild(resLabel);
+  RESOURCES.forEach((r) => {
+    const a = document.createElement('a');
+    a.className = 'vt-resource-link';
+    a.href = r.url;
+    a.target = '_blank';
+    a.rel = 'noreferrer';
+    const icon = document.createElement('span');
+    icon.textContent = r.icon;
+    const label = document.createElement('span');
+    label.textContent = r.label;
+    a.appendChild(icon);
+    a.appendChild(label);
+    resources.appendChild(a);
+  });
+
+  left.appendChild(courseInfo);
+  left.appendChild(moduleList);
+  left.appendChild(resources);
+
+  /* Chat panel */
+  const chat = document.createElement('div');
+  chat.className = 'vt-chat';
+
+  const chatHeader = document.createElement('div');
+  chatHeader.className = 'vt-chat-header';
+  const trainerAv = makeTrainerAvatar(34);
+  const trainerInfo = document.createElement('div');
+  const trainerName = document.createElement('div');
+  trainerName.className = 'vt-trainer-name';
+  trainerName.textContent = 'Adobe Virtual Trainer';
+  const trainerStatus = document.createElement('div');
+  trainerStatus.className = 'vt-trainer-status';
+  const dot = document.createElement('div');
+  dot.className = 'vt-status-dot';
+  trainerStatus.appendChild(dot);
+  trainerStatus.appendChild(document.createTextNode('Online · ready to help'));
+  trainerInfo.appendChild(trainerName);
+  trainerInfo.appendChild(trainerStatus);
+
+  activeSectionEl = document.createElement('div');
+  activeSectionEl.className = 'vt-active-section';
+  chatHeader.appendChild(trainerAv);
+  chatHeader.appendChild(trainerInfo);
+  chatHeader.appendChild(activeSectionEl);
+
+  messagesEl = document.createElement('div');
+  messagesEl.className = 'vt-messages';
+
+  chipsEl = document.createElement('div');
+  chipsEl.className = 'vt-chips';
+  ['Let\'s start Module 1', 'What is DA?', 'Show me the slash menu'].forEach((label) => {
+    const chip = document.createElement('button');
+    chip.className = 'vt-chip';
+    chip.textContent = label;
+    chip.addEventListener('click', () => {
+      textarea.value = label;
+      textarea.dispatchEvent(new Event('input'));
+      textarea.focus();
+    });
+    chipsEl.appendChild(chip);
+  });
+
+  const inputArea = document.createElement('div');
+  inputArea.className = 'vt-input-area';
+  const inputWrap = document.createElement('div');
+  inputWrap.className = 'vt-input-wrap';
+
+  textarea = document.createElement('textarea');
+  textarea.className = 'vt-textarea';
+  textarea.rows = 1;
+  textarea.placeholder = 'Ask anything, or say \'done\' to move to the next step…';
+
+  sendBtn = document.createElement('button');
+  sendBtn.className = 'vt-send';
+  sendBtn.appendChild(svgSend(false));
+
+  const hint = document.createElement('div');
+  hint.className = 'vt-input-hint';
+  hint.textContent = 'Enter to send · Shift+Enter for new line';
+
+  inputWrap.appendChild(textarea);
+  inputWrap.appendChild(sendBtn);
+  inputArea.appendChild(inputWrap);
+  inputArea.appendChild(hint);
+
+  chat.appendChild(chatHeader);
+  chat.appendChild(messagesEl);
+  chat.appendChild(chipsEl);
+  chat.appendChild(inputArea);
+
+  body.appendChild(left);
+  body.appendChild(chat);
+  block.appendChild(header);
+  block.appendChild(body);
+
+  /* ── Render initial message ── */
+  state.messages.forEach((m) => appendMessage(m));
+
+  /* ── Wire events ── */
+  textarea.addEventListener('focus', () => inputWrap.classList.add('focused'));
+  textarea.addEventListener('blur', () => inputWrap.classList.remove('focused'));
+  textarea.addEventListener('input', () => {
+    textarea.style.height = 'auto';
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 128)}px`;
+    updateSendBtn();
+  });
+  textarea.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+  });
+  sendBtn.addEventListener('click', send);
+}
