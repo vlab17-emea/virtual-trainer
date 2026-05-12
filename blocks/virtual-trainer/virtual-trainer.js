@@ -16,12 +16,6 @@
  *   5. if 'ims:signedout' fires, block disables input until re-auth
  */
 
-/* ── Image base URL ──────────────────────────────────────────────────────────
-   Set to your live URL once screenshots are uploaded to /assets.
-   e.g. 'https://trainer.learn-adobe-ai.com'
-   Leave empty to show labelled placeholders.                                */
-const IMAGE_BASE_URL = '';
-
 /* ── Yukon API ───────────────────────────────────────────────────────────────
    Calls the Yukon Stage Q&A inference endpoint with the user's IMS token.
    The conversation history is maintained client-side; each call sends the
@@ -93,59 +87,6 @@ async function callYukon(messages, collectionId, yukonHost, imsToken) {
 
   return typeof answer === 'string' ? answer : JSON.stringify(answer);
 }
-
-/* ── Image map ───────────────────────────────────────────────────────────── */
-function ph(label, w = 520, h = 260) {
-  return `https://placehold.co/${w}x${h}/f4f4f4/aaaaaa?text=${encodeURIComponent(label)}`;
-}
-
-function imgUrl(path, label, w, h) {
-  return IMAGE_BASE_URL ? `${IMAGE_BASE_URL}/${path}` : ph(label, w, h);
-}
-
-/* ── Image map — used when IMAGE_BASE_URL is set and screenshots are hosted ──
-   eslint-disable-next-line no-unused-vars                                   */
-const IMAGES = {
-  'da-home': imgUrl('modules/m2-authoring/assets/3.png', 'DA Live home screen', 520, 260),
-  'correct-org': imgUrl('modules/m2-authoring/assets/correct-org-da.png', 'Check organisation', 280, 140),
-  'new-menu': imgUrl('modules/m2-authoring/assets/new.png', 'New breadcrumb menu', 420, 180),
-  'create-folder': imgUrl('modules/m2-authoring/assets/create_folder.png', 'Create folder dialog', 520, 220),
-  'surfing-page': imgUrl('modules/m2-authoring/assets/surfing_in_bali_page.png', 'New document opened', 520, 260),
-  'set-h1': imgUrl('modules/m2-authoring/assets/set_h1.png', 'Setting Heading 1', 360, 200),
-  'add-link': imgUrl('modules/m2-authoring/assets/add_link.png', 'Insert Link dialog', 500, 220),
-  'add-block': imgUrl('modules/m3-blocks/assets/add_block.png', 'Adding a block via Edit Menu', 520, 240),
-  'select-block': imgUrl('modules/m3-blocks/assets/selected-block.png', 'Block selected', 520, 220),
-  'lib-blocks': imgUrl('modules/m3-blocks/assets/library_blocks.png', 'Library Blocks panel', 320, 280),
-  'lib-content': imgUrl('modules/m3-blocks/assets/blocks_with_content.png', 'Block with sample content', 480, 220),
-  'slash-menu': imgUrl('modules/m3-blocks/assets/add_block_with_slash.png', 'Slash menu inline', 220, 180),
-  'gap-fix': imgUrl('modules/m3-blocks/assets/close_tables.png', 'Clicking margin to create gap', 320, 200),
-  'new-row': imgUrl('modules/m3-blocks/assets/new_row.png', 'Insert new row', 300, 180),
-  'delete-table': imgUrl('modules/m3-blocks/assets/delete_table.png', 'Delete Table icon', 480, 200),
-  'hero-lib': imgUrl('modules/m3-blocks/assets/library.png', 'Library in Edit Menu', 320, 260),
-  'hero-block': imgUrl('modules/m3-blocks/assets/hero_standard.png', 'Hero block inserted', 480, 220),
-  'hero-preview': imgUrl('modules/m3-blocks/assets/hero_preview.png', 'Auto-block hero preview', 480, 240),
-  'preview-btn': imgUrl('modules/m4-publishing/assets/preview.png', 'Preview button', 360, 180),
-  airplane: imgUrl('modules/m4-publishing/assets/airplane.png', 'Action Area icon', 200, 120),
-  preflight: imgUrl('modules/m4-publishing/assets/preflight.png', 'Preflight check', 360, 200),
-  sidekick: imgUrl('modules/m4-publishing/assets/sidekick_bar.png', 'AEM Sidekick toolbar', 480, 160),
-  unpublish: imgUrl('modules/m4-publishing/assets/unpublish.png', 'Unpublish confirmation', 360, 180),
-  'version-btn': imgUrl('modules/m4-publishing/assets/version_button.png', 'Versions icon', 260, 120),
-  timeline: imgUrl('modules/m4-publishing/assets/timeline.png', 'Document timeline', 200, 260),
-  restore: imgUrl('modules/m4-publishing/assets/restore_7_1.png', 'Restore version', 400, 200),
-  'folder-status': imgUrl('modules/m4-publishing/assets/status_preview_7_1.png', 'Folder status row', 520, 180),
-  'bali-beach': imgUrl('modules/m5-media/assets/bali_beach.png', 'Bali beach in assets', 420, 220),
-  'paste-beach': imgUrl('modules/m5-media/assets/paste_bali_beach.png', 'Pasted image', 520, 240),
-  'aem-assets': imgUrl('modules/m5-media/assets/open_aem_assets.png', 'AEM Assets overlay', 520, 280),
-  'select-asset': imgUrl('modules/m5-media/assets/select_asset.png', 'Selecting an asset', 520, 280),
-  'surf-preview': imgUrl('modules/m5-media/assets/preview_surf.png', 'Video preview', 520, 220),
-  'embed-done': imgUrl('modules/m5-media/assets/embed_completed.png', 'Completed embed block', 520, 240),
-  'section-break': imgUrl('modules/m6-metadata/assets/sectionbreak.png', 'Section break', 520, 180),
-  'metadata-blk': imgUrl('modules/m6-metadata/assets/metadata.png', 'Metadata block', 520, 220),
-  'copy-tmpl': imgUrl('modules/m7-reuse/assets/copy_template.png', 'Copy template', 520, 200),
-  rename: imgUrl('modules/m7-reuse/assets/rename.png', 'Rename document', 520, 200),
-  disclaimer: imgUrl('modules/m7-reuse/assets/disclaimer.png', 'Publish fragment', 520, 220),
-  'skiing-doc': imgUrl('modules/m7-reuse/assets/skiinginchamonix.png', 'Skiing doc with fragment', 520, 280),
-};
 
 /* ── Course structure ────────────────────────────────────────────────────── */
 const MODULES = [
