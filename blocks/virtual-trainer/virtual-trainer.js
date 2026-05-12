@@ -249,7 +249,9 @@ function svgEl(tag, attrs) {
 }
 
 function svgAdobeA() {
-  const svg = svgEl('svg', { width: '26', height: '20', viewBox: '0 0 26 20', fill: 'none' });
+  const svg = svgEl('svg', {
+    width: '26', height: '20', viewBox: '0 0 26 20', fill: 'none',
+  });
   svg.appendChild(svgEl('path', { d: 'M15.6 0H26L10.4 20H0L15.6 0Z', fill: 'white' }));
   svg.appendChild(svgEl('path', { d: 'M10.4 0H0V20L10.4 0Z', fill: 'rgba(255,255,255,0.5)' }));
   return svg;
@@ -257,8 +259,12 @@ function svgAdobeA() {
 
 function svgPerson(size) {
   const s = size * 0.52;
-  const svg = svgEl('svg', { width: s, height: s, viewBox: '0 0 24 24', fill: 'none' });
-  svg.appendChild(svgEl('circle', { cx: '12', cy: '8', r: '4', fill: 'white' }));
+  const svg = svgEl('svg', {
+    width: s, height: s, viewBox: '0 0 24 24', fill: 'none',
+  });
+  svg.appendChild(svgEl('circle', {
+    cx: '12', cy: '8', r: '4', fill: 'white',
+  }));
   svg.appendChild(svgEl('path', {
     d: 'M4 20c0-4 3.6-7 8-7s8 3 8 7',
     stroke: 'white',
@@ -269,7 +275,9 @@ function svgPerson(size) {
 }
 
 function svgChevron() {
-  const svg = svgEl('svg', { width: '11', height: '11', viewBox: '0 0 12 12', fill: 'none' });
+  const svg = svgEl('svg', {
+    width: '11', height: '11', viewBox: '0 0 12 12', fill: 'none',
+  });
   svg.classList.add('vt-chevron');
   svg.appendChild(svgEl('path', {
     d: 'M4 2.5L7.5 6L4 9.5',
@@ -283,8 +291,12 @@ function svgChevron() {
 
 function svgSend(active) {
   const color = active ? 'white' : '#bbb';
-  const svg = svgEl('svg', { width: '15', height: '15', viewBox: '0 0 24 24', fill: 'none' });
-  svg.appendChild(svgEl('path', { d: 'M22 2L11 13', stroke: color, 'stroke-width': '2', 'stroke-linecap': 'round' }));
+  const svg = svgEl('svg', {
+    width: '15', height: '15', viewBox: '0 0 24 24', fill: 'none',
+  });
+  svg.appendChild(svgEl('path', {
+    d: 'M22 2L11 13', stroke: color, 'stroke-width': '2', 'stroke-linecap': 'round',
+  }));
   svg.appendChild(svgEl('path', {
     d: 'M22 2L15 22L11 13L2 9L22 2Z',
     stroke: color,
@@ -352,7 +364,8 @@ export default function decorate(block) {
     if (profile && userAvatarEl) {
       /* Show initials from profile name */
       const name = profile.displayName || profile.first_name || '';
-      const initials = name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
+      const initials = name.split(' ').map((n) => n[0]).join('').slice(0, 2)
+        .toUpperCase();
       if (initials) userAvatarEl.textContent = initials;
     }
   });
