@@ -22,13 +22,6 @@ const IMS_LIB = {
 
 const DEFAULT_SCOPE = 'AdobeID,openid,read_organizations,additional_info.ownerOrg';
 
-/* ── Token retrieval — handles v1 (string) and v2 (object) return shapes ── */
-function getAccessToken() {
-  const tokenInfo = window.adobeIMS?.getAccessToken?.();
-  if (!tokenInfo) return null;
-  return typeof tokenInfo === 'string' ? tokenInfo : (tokenInfo.token || null);
-}
-
 /* ── SVG Adobe wordmark ── */
 function svgAdobeA() {
   const ns = 'http://www.w3.org/2000/svg';
@@ -137,32 +130,28 @@ export default function decorate(block) {
     scope,
     locale: 'en_US',
     environment: env,
-    onReady() {
-      if (window.adobeIMS.isSignedInUser()) {
-        const token = getAccessToken();
-        if (token) {
-          /* Collapse the auth block — portal takes over */
-          block.classList.add('signed-in');
-          block.innerHTML = '';
-          /* Notify other blocks */
-          document.dispatchEvent(new CustomEvent('ims:ready', {
-            detail: {
-              token,
-              profile: null,
-            },
+    autoValidateToken: false,
+    onAccessToken(tokenInfo) {
+      /* Fires with { token, expire, sid } when user is signed in */
+      const token = typeof tokenInfo === 'string' ? tokenInfo : (tokenInfo?.token || null);
+      if (token) {
+        block.classList.add('signed-in');
+        block.innerHTML = '';
+        document.dispatchEvent(new CustomEvent('ims:ready', {
+          detail: { token },
+        }));
+        /* Fetch profile async */
+        window.adobeIMS.getProfile().then((profile) => {
+          document.dispatchEvent(new CustomEvent('ims:profile', {
+            detail: { token, profile },
           }));
-          /* Fetch profile async and re-dispatch with profile data */
-          window.adobeIMS.getProfile().then((profile) => {
-            document.dispatchEvent(new CustomEvent('ims:profile', {
-              detail: { token, profile },
-            }));
-          }).catch(() => {
-            /* Profile fetch failed — token still valid, continue */
-          });
-        } else {
-          showGate(block);
-        }
-      } else {
+        }).catch(() => {});
+      }
+    },
+    onReady() {
+      /* onAccessToken already fired if signed in.
+         If we reach onReady and block is not yet signed-in, show gate. */
+      if (!block.classList.contains('signed-in')) {
         showGate(block);
       }
     },
