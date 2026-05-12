@@ -1,39 +1,97 @@
 /**
  * Virtual Trainer Block
- * EDS block that renders a full-bleed AI-powered course assistant.
+ * EDS block — full-bleed AI-powered course assistant backed by Yukon RAG.
  *
- * DA authoring — add as a table on your page:
- * | virtual-trainer |                              |
- * | collection      | <yukon-collection-id>        |
- * | course          | EDS Document Authoring       |
+ * DA authoring — add as a table on your page AFTER the ims-auth block:
+ * | virtual-trainer |                                          |
+ * | collection      | 0d3151f2-74ec-423e-9685-c1f79a6e7f5b   |
+ * | course          | EDS Document Authoring for Authors       |
+ * | yukon           | https://yukon-stage.adobe.io             |
  *
- * Config:
- *  IMAGE_BASE_URL — set to your .aem.live URL once screenshots are in /assets
- *  callAPI()      — currently wired to Anthropic for testing;
- *                   swap for Yukon inference when onboarding is complete
+ * Auth flow:
+ *   1. ims-auth block loads imslib and signs the user in
+ *   2. ims-auth dispatches 'ims:ready' with { token }
+ *   3. this block listens for 'ims:ready' and stores the token
+ *   4. every Yukon call uses Authorization: Bearer <token>
+ *   5. if 'ims:signedout' fires, block disables input until re-auth
  */
 
 /* ── Image base URL ──────────────────────────────────────────────────────────
    Set to your live URL once screenshots are uploaded to /assets.
-   e.g. 'https://main--virtual-trainer--vlab17-emea.aem.live'
-   Leave empty to show labelled placeholders instead.                       */
+   e.g. 'https://trainer.learn-adobe-ai.com'
+   Leave empty to show labelled placeholders.                                */
 const IMAGE_BASE_URL = '';
 
-/* ── API ─────────────────────────────────────────────────────────────────────
-   TODO: replace body with Yukon inference endpoint when onboarding complete */
-async function callAPI(messages, systemPrompt) {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+/* ── Yukon API ───────────────────────────────────────────────────────────────
+   Calls the Yukon Stage Q&A inference endpoint with the user's IMS token.
+   The conversation history is maintained client-side; each call sends the
+   full history so Yukon has context for follow-up questions.               */
+async function callYukon(messages, collectionId, yukonHost, imsToken) {
+  if (!imsToken) throw new Error('No IMS token available — please sign in.');
+
+  /* Build a single question string from the latest user message.
+     Yukon Q&A is stateless per-call; we provide context in the question. */
+  const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
+  if (!lastUserMsg) throw new Error('No user message found.');
+
+  /* Include recent conversation context for follow-up awareness */
+  const recentHistory = messages.slice(-6);
+  const contextLines = recentHistory
+    .filter((m) => m.role !== 'assistant' || recentHistory.indexOf(m) > 0)
+    .map((m) => `${m.role === 'user' ? 'Student' : 'Trainer'}: ${m.content}`)
+    .join('\n');
+
+  const question = recentHistory.length > 2
+    ? `Conversation so far:\n${contextLines}\n\nCurrent question: ${lastUserMsg.content}`
+    : lastUserMsg.content;
+
+  const endpoint = `${yukonHost}/api/v2/inference/question-answer`;
+
+  const res = await fetch(endpoint, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      Authorization: `Bearer ${imsToken}`,
+      'Content-Type': 'application/json',
+    },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1000,
-      system: systemPrompt,
-      messages: messages.map((m) => ({ role: m.role, content: m.content })),
+      request_id: crypto.randomUUID(),
+      collections: [collectionId],
+      inputs: question,
+      response_format: {
+        format: 'AUTO',
+        style: 'CONCISE',
+        tone: 'AUTO',
+        reasoning: 'DISABLED',
+      },
+      source_options: ['COLLECTION'],
+      inference_mode: 'STANDARD',
+      file_generation: 'DISABLED',
+      time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+      enable_figures: true,
+      store: false,
     }),
   });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => res.statusText);
+    if (res.status === 401) throw new Error('Session expired — please sign in again.');
+    if (res.status === 403) throw new Error('Access denied — your account may not have access to this collection.');
+    throw new Error(`Yukon error ${res.status}: ${errText}`);
+  }
+
   const data = await res.json();
-  return data.content?.[0]?.text || 'Sorry, something went wrong. Please try again.';
+
+  /* Extract answer text from Yukon response shape.
+     v2 Q&A returns: { answer: { text: '...' }, attributions: [...] }
+     Fall back gracefully if shape differs.                              */
+  const answer = data?.answer?.text
+    || data?.answer
+    || data?.output
+    || data?.text
+    || data?.response
+    || JSON.stringify(data);
+
+  return typeof answer === 'string' ? answer : JSON.stringify(answer);
 }
 
 /* ── Image map ───────────────────────────────────────────────────────────── */
@@ -149,190 +207,11 @@ const MODULES = [
 ];
 
 const RESOURCES = [
-  {
-    icon: '🌐',
-    label: 'DA Live',
-    url: 'https://da.live',
-  },
-  {
-    icon: '📖',
-    label: 'EDS Documentation',
-    url: 'https://www.aem.live/docs',
-  },
-  {
-    icon: '🔧',
-    label: 'AEM Sidekick',
-    url: 'https://www.aem.live/docs/sidekick',
-  },
-  {
-    icon: '📁',
-    label: 'Exercise Files',
-    url: '#',
-  },
+  { icon: '🌐', label: 'DA Live', url: 'https://da.live' },
+  { icon: '📖', label: 'EDS Documentation', url: 'https://www.aem.live/docs' },
+  { icon: '🔧', label: 'AEM Sidekick', url: 'https://www.aem.live/docs/sidekick' },
+  { icon: '📁', label: 'Exercise Files', url: '#' },
 ];
-
-/* ── System prompt ───────────────────────────────────────────────────────── */
-function buildSystemPrompt(courseName) {
-  const courseContent = `
-EDS DOCUMENT AUTHORING FOR AUTHORS — Activity Guide
-
-When a step has a screenshot include it using: ![description](url)
-
-MODULE 1: BASIC AUTHORING
-Section: Access DA
-Step 1 — Navigate to https://da.live → show: ![DA Live home screen](${IMAGES['da-home']})
-Step 2 — Login via Sign In link (top right) with instructor credentials
-Step 3 — Click account logo, confirm Organisation → show: ![Check organisation](${IMAGES['correct-org']})
-
-Section: Create a Page
-Step 1 — Enter site URL (da.live/org/da-getting-started) in browser
-Step 2 — Open the "enablement" directory
-Step 3 — Breadcrumb > new > folder → show: ![New breadcrumb menu](${IMAGES['new-menu']})
-Step 4 — Enter initial + name (e.g. jbrown), Create folder → show: ![Create folder dialog](${IMAGES['create-folder']})
-Step 5 — Click folder > new > Document, enter "Surfing in Bali"
-Step 6 — Create document → show: ![New document opened](${IMAGES['surfing-page']})
-
-Section: Add Content
-Step 1 — Type "Surfing in Bali" at top of document
-Step 2 — Select text > Edit Menu > Edit Text > Heading 1 → show: ![Setting Heading 1](${IMAGES['set-h1']})
-Step 3 — Add body paragraph. Paste tip: Ctrl+Shift+V (Win) or Cmd+Shift+V (Mac)
-Step 4 — Edit Menu > Insert Link → show: ![Insert Link dialog](${IMAGES['add-link']})
-
-MODULE 2: BLOCKS AND DOCUMENT STRUCTURE
-Section: Add and Delete the Columns Block
-Step 1 — Delete the title (cursor stays)
-Step 2 — Edit Menu > Block → show: ![Adding a block via Edit Menu](${IMAGES['add-block']})
-Step 3 — Hover header, click square icon, press Delete → show: ![Block selected](${IMAGES['select-block']})
-
-Section: Add a Block from the Library
-Step 1 — Edit Menu > Library > Blocks > Columns → show: ![Library Blocks panel](${IMAGES['lib-blocks']})
-Step 2 — Library blocks arrive with sample content → show: ![Block with sample content](${IMAGES['lib-content']})
-
-Section: Use the Slash Menu
-Step 1 — Under the block type "/" — inline menu appears
-Step 2 — Type "bl", select Block → show: ![Slash menu inline](${IMAGES['slash-menu']})
-
-Section: Create Space Between Blocks
-Step 1 — Two adjacent blocks — no cursor between them
-Step 2 — Click in the MARGIN of lower block → show: ![Clicking margin to create gap](${IMAGES['gap-fix']})
-
-Section: Edit Menu Block Tools
-Step 1 — Cursor in block cell, hover Edit Menu — table tools appear
-Step 2 — Insert a new row → show: ![Insert new row](${IMAGES['new-row']})
-Step 3 — Edit Menu > Edit Block > Delete Table → show: ![Delete Table icon](${IMAGES['delete-table']})
-
-Section: Search Library and Add a Hero Block
-Step 1 — Edit Menu > Library → show: ![Library in Edit Menu](${IMAGES['hero-lib']})
-Step 2 — Search "hero", click result → show: ![Hero block inserted](${IMAGES['hero-block']})
-Step 3 — Click Preview button (top right)
-
-Section: Create a Hero Auto-Block
-Step 1 — Delete the hero block
-Step 2 — Drag hero_surfing.png to top of document
-Step 3 — Below image add H1 "Surfing in Bali"
-Step 4 — Preview — Hero renders automatically → show: ![Auto-block hero preview](${IMAGES['hero-preview']})
-
-MODULE 3: PREVIEW AND PUBLISHING
-Section: Explore Live Preview
-Step 1 — Open surfing-in-bali, use inline preview → show: ![Preview button](${IMAGES['preview-btn']})
-Step 2 — Add second H1 "a truly heroic activity!", explore preview sizes
-
-Section: Preflight Check
-Step 1 — Click blue paper airplane (Action Area, top right) → show: ![Action Area icon](${IMAGES.airplane})
-Step 2 — Open Preflight — warning: more than one H1 → show: ![Preflight check](${IMAGES.preflight})
-Step 3 — Change second H1 to H2, run preflight — warning gone
-
-Section: Preview the Page
-Step 1 — Action Area > Preview — EDS preview in new tab
-Step 2 — URL ends in .aem.page; path mirrors DA structure
-
-Section: AEM Sidekick (Optional)
-Step 1 — Install from https://www.aem.live/docs/sidekick
-Step 2 — Toggle sidekick → show: ![AEM Sidekick toolbar](${IMAGES.sidekick})
-
-Section: Publish the Document
-Step 1 — DA.live > Action Area > Publish
-Step 2 — Live page opens on .aem.live
-
-Section: Unpublish the Document
-Step 1 — Action Area > Unpublish → show: ![Unpublish confirmation](${IMAGES.unpublish})
-Step 2 — Type YES to confirm
-
-Section: Timeline and Versioning
-Step 1 — Click versions icon → show: ![Versions icon](${IMAGES['version-btn']})
-Step 2 — See timeline → show: ![Document timeline](${IMAGES.timeline})
-Step 3 — Click "+ Now" to create named version
-Step 4 — Restore: version > green arrow > Restore → show: ![Restore version](${IMAGES.restore})
-
-Section: Folder Status View
-Step 1 — Use breadcrumb to return to folder
-Step 2 — Click ellipsis next to document → show: ![Folder status row](${IMAGES['folder-status']})
-Step 3 — Status refers to LATEST version only
-
-MODULE 4: MEDIA AND ASSETS
-Section: Drag-and-Drop Images
-Step 1 — Drag image files directly from filesystem into document
-
-Section: Images from the assets Folder
-Step 1 — Navigate to /assets in project root → show: ![Bali beach in assets](${IMAGES['bali-beach']})
-Step 2 — Open bali_beach, copy (right-click or Ctrl+C / Cmd+C)
-Step 3 — Delete hero image, paste bali_beach → show: ![Pasted image](${IMAGES['paste-beach']})
-NOTE: Copy only — source changes won't appear here
-
-Section: AEM Assets Images
-Step 1 — Delete image in Hero, cursor in empty space
-Step 2 — Library > AEM Assets → show: ![AEM Assets overlay](${IMAGES['aem-assets']})
-Step 3 — wknd shared > en > magazine > san-diego-surfing, select → show: ![Selecting an asset](${IMAGES['select-asset']})
-NOTE: AEM Assets images are live references
-
-Section: Embed Block for Video
-Step 1 — /assets > surf-video.mp4 > Preview → show: ![Video preview](${IMAGES['surf-preview']})
-Step 2 — Copy preview URL
-Step 3 — Library > Blocks > embed, paste video URL, add hero image
-Step 4 — Check result → show: ![Completed embed block](${IMAGES['embed-done']})
-
-MODULE 5: PAGES, URLS, AND METADATA
-Section: Add a Metadata Block
-Step 1 — End of doc, type --- on empty line → show: ![Section break](${IMAGES['section-break']})
-Step 2 — Insert columns block, rename to "metadata" → show: ![Metadata block](${IMAGES['metadata-blk']})
-Step 3 — Add: title, description, robots | noindex,nofollow
-Step 4 — Preview, Publish, verify in page source (Cmd/Ctrl+U)
-
-MODULE 6: REUSABLE CONTENT
-Section: Create a Document from a Template
-Step 1 — /templates > article-template > copy (purple Actions Bar) → show: ![Copy template](${IMAGES['copy-tmpl']})
-Step 2 — Navigate to your folder, paste (purple Actions Bar)
-Step 3 — Rename to "Skiing in Chamonix" → show: ![Rename document](${IMAGES.rename})
-
-Section: Update the Article
-Step 1 — Open Skiing in Chamonix, change title and text
-Step 2 — Update metadata: title and description
-Step 3 — Click Preview
-
-Section: Include a Fragment
-Step 1 — /fragments/fragment-disclaimer > publish > copy live URL → show: ![Publish fragment](${IMAGES.disclaimer})
-Step 2 — Return to Skiing in Chamonix, add --- for new section
-Step 3 — Insert Fragment block, paste fragment URL → show: ![Skiing doc with fragment](${IMAGES['skiing-doc']})
-
-Section: Publish and Verify
-Step 1 — Preview then Publish Skiing in Chamonix
-Step 2 — Confirm: metadata applied, fragment appears on live page
-`;
-
-  return `You are an Adobe Virtual Trainer guiding a student through the "${courseName}" hands-on activity guide. You are warm, encouraging, and practical.
-
-Your approach:
-- Walk through exercises ONE STEP AT A TIME — never dump all steps at once
-- Present each step in plain, friendly language
-- After each step, pause and check: ask if completed or if there are questions
-- When the student confirms done or says ready, move to the next step
-- When a step has a screenshot, include it using: ![description](url)
-- Only show ONE image per response unless comparing two things
-- Use encouraging language: "Nice work!", "Exactly right", "Good question"
-- Keep responses concise — 2-4 sentences per step
-
-${courseContent}`;
-}
 
 /* ── Markdown renderer ───────────────────────────────────────────────────── */
 function renderMarkdown(raw) {
@@ -425,7 +304,7 @@ function makeTrainerAvatar(size) {
 
 /* ── Block entry point ───────────────────────────────────────────────────── */
 export default function decorate(block) {
-  /* ── Read config from block table ── */
+  /* ── Read config ── */
   const config = {};
   [...block.children].forEach((row) => {
     const [keyEl, valueEl] = [...row.children];
@@ -435,24 +314,57 @@ export default function decorate(block) {
   });
 
   const courseName = config.course || 'Adobe Training Course';
-  const systemPrompt = buildSystemPrompt(courseName);
+  const collectionId = config.collection || '';
+  const yukonHost = config.yukon || 'https://yukon-stage.adobe.io';
 
   /* ── State ── */
   const state = {
     messages: [{
       role: 'assistant',
-      content: `Welcome! I\'m your Adobe Virtual Trainer for **${courseName}**.\n\nI\'ll guide you through each exercise one step at a time, with screenshots alongside each step.\n\nReady to start with Module 1? Or jump to any section using the panel on the left.`,
+      content: `Welcome! I\'m your Adobe Virtual Trainer for **${courseName}**.\n\nI\'ll guide you through each exercise one step at a time.\n\nReady to start with Module 1? Or jump to any section using the panel on the left.`,
     }],
     loading: false,
+    imsToken: null,
     openModules: { m1: true },
   };
 
-  /* ── DOM refs — declared here so inner functions can reference them ── */
+  /* ── DOM refs ── */
   let messagesEl;
   let chipsEl;
   let textarea;
   let sendBtn;
   let activeSectionEl;
+  let userAvatarEl;
+
+  /* ── IMS token listeners ── */
+  document.addEventListener('ims:ready', (e) => {
+    state.imsToken = e.detail?.token || null;
+    /* Enable input now that we have a token */
+    if (textarea) {
+      textarea.disabled = false;
+      textarea.placeholder = 'Ask anything, or say \'done\' to move to the next step…';
+      updateSendBtn();
+    }
+  });
+
+  document.addEventListener('ims:profile', (e) => {
+    const { profile } = e.detail || {};
+    if (profile && userAvatarEl) {
+      /* Show initials from profile name */
+      const name = profile.displayName || profile.first_name || '';
+      const initials = name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
+      if (initials) userAvatarEl.textContent = initials;
+    }
+  });
+
+  document.addEventListener('ims:signedout', () => {
+    state.imsToken = null;
+    if (textarea) {
+      textarea.disabled = true;
+      textarea.placeholder = 'Please sign in to continue…';
+      updateSendBtn();
+    }
+  });
 
   /* ── Helper functions ── */
   function appendMessage(msg) {
@@ -493,14 +405,14 @@ export default function decorate(block) {
   }
 
   function updateSendBtn() {
-    const active = textarea.value.trim().length > 0 && !state.loading;
+    const active = textarea.value.trim().length > 0 && !state.loading && !!state.imsToken;
     sendBtn.classList.toggle('active', active);
     sendBtn.innerHTML = '';
     sendBtn.appendChild(svgSend(active));
   }
 
   async function sendChat(actualContent, displayContent) {
-    if (state.loading) return;
+    if (state.loading || !state.imsToken) return;
     const display = displayContent || actualContent;
     state.messages.push({ role: 'user', content: actualContent });
     appendMessage({ role: 'user', content: display });
@@ -509,13 +421,13 @@ export default function decorate(block) {
     showTyping();
     updateSendBtn();
     try {
-      const text = await callAPI(state.messages, systemPrompt);
+      const text = await callYukon(state.messages, collectionId, yukonHost, state.imsToken);
       state.messages.push({ role: 'assistant', content: text });
       hideTyping();
       appendMessage({ role: 'assistant', content: text });
-    } catch {
+    } catch (err) {
       hideTyping();
-      appendMessage({ role: 'assistant', content: 'Connection issue — please try again in a moment.' });
+      appendMessage({ role: 'assistant', content: `⚠️ ${err.message || 'Something went wrong. Please try again.'}` });
     }
     state.loading = false;
     updateSendBtn();
@@ -523,7 +435,7 @@ export default function decorate(block) {
 
   function send() {
     const text = textarea.value.trim();
-    if (!text || state.loading) return;
+    if (!text || state.loading || !state.imsToken) return;
     textarea.value = '';
     textarea.style.height = 'auto';
     updateSendBtn();
@@ -536,7 +448,7 @@ export default function decorate(block) {
     activeSectionEl.textContent = `📍 ${moduleTitle} > ${sectionTitle}`;
     activeSectionEl.classList.add('visible');
     sendChat(
-      `[Student navigated to: ${moduleTitle} → ${sectionTitle}] Please guide me through this section step by step, including screenshots where relevant.`,
+      `The student has navigated to the section "${sectionTitle}" in module "${moduleTitle}". Please guide them through this section step by step, including any relevant screenshots.`,
       `Take me to: ${moduleTitle} → ${sectionTitle}`,
     );
   }
@@ -563,11 +475,22 @@ export default function decorate(block) {
   const headerCourse = document.createElement('div');
   headerCourse.className = 'vt-header-course';
   headerCourse.textContent = courseName;
-  const userAvatar = document.createElement('div');
-  userAvatar.className = 'vt-avatar';
-  userAvatar.textContent = 'JD';
+
+  userAvatarEl = document.createElement('div');
+  userAvatarEl.className = 'vt-avatar';
+  userAvatarEl.textContent = '…';
+
+  /* Sign out link */
+  const signOutBtn = document.createElement('button');
+  signOutBtn.className = 'vt-sign-out';
+  signOutBtn.textContent = 'Sign out';
+  signOutBtn.addEventListener('click', () => {
+    if (window.adobeIMS) window.adobeIMS.signOut();
+  });
+
   headerMeta.appendChild(headerCourse);
-  headerMeta.appendChild(userAvatar);
+  headerMeta.appendChild(userAvatarEl);
+  headerMeta.appendChild(signOutBtn);
   header.appendChild(wordmark);
   header.appendChild(divider);
   header.appendChild(headerTitle);
@@ -602,10 +525,8 @@ export default function decorate(block) {
   MODULES.forEach((mod, mi) => {
     const modEl = document.createElement('div');
     modEl.className = 'vt-module';
-
     const modHeader = document.createElement('div');
     modHeader.className = 'vt-module-header';
-
     const modLeft = document.createElement('div');
     modLeft.className = 'vt-module-header-left';
     const num = document.createElement('div');
@@ -616,16 +537,12 @@ export default function decorate(block) {
     name.textContent = mod.title;
     modLeft.appendChild(num);
     modLeft.appendChild(name);
-
     const chevron = svgChevron();
     if (state.openModules[mod.id]) chevron.classList.add('open');
-
     modHeader.appendChild(modLeft);
     modHeader.appendChild(chevron);
-
     const sections = document.createElement('div');
     sections.className = `vt-sections${state.openModules[mod.id] ? ' open' : ''}`;
-
     mod.sections.forEach((sec) => {
       const secEl = document.createElement('div');
       secEl.className = 'vt-section';
@@ -633,13 +550,11 @@ export default function decorate(block) {
       secEl.addEventListener('click', () => navigateToSection(mod.title, sec, secEl));
       sections.appendChild(secEl);
     });
-
     modHeader.addEventListener('click', () => {
       state.openModules[mod.id] = !state.openModules[mod.id];
       sections.classList.toggle('open', state.openModules[mod.id]);
       chevron.classList.toggle('open', state.openModules[mod.id]);
     });
-
     modEl.appendChild(modHeader);
     modEl.appendChild(sections);
     moduleList.appendChild(modEl);
@@ -686,7 +601,7 @@ export default function decorate(block) {
   const dot = document.createElement('div');
   dot.className = 'vt-status-dot';
   trainerStatus.appendChild(dot);
-  trainerStatus.appendChild(document.createTextNode('Online · ready to help'));
+  trainerStatus.appendChild(document.createTextNode('Powered by Yukon RAG'));
   trainerInfo.appendChild(trainerName);
   trainerInfo.appendChild(trainerStatus);
 
@@ -721,7 +636,8 @@ export default function decorate(block) {
   textarea = document.createElement('textarea');
   textarea.className = 'vt-textarea';
   textarea.rows = 1;
-  textarea.placeholder = 'Ask anything, or say \'done\' to move to the next step…';
+  textarea.disabled = true;
+  textarea.placeholder = 'Signing in…';
 
   sendBtn = document.createElement('button');
   sendBtn.className = 'vt-send';
