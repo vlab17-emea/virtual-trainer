@@ -103,6 +103,8 @@ function imgUrl(path, label, w, h) {
   return IMAGE_BASE_URL ? `${IMAGE_BASE_URL}/${path}` : ph(label, w, h);
 }
 
+/* ── Image map — used when IMAGE_BASE_URL is set and screenshots are hosted ──
+   eslint-disable-next-line no-unused-vars                                   */
 const IMAGES = {
   'da-home': imgUrl('modules/m2-authoring/assets/3.png', 'DA Live home screen', 520, 260),
   'correct-org': imgUrl('modules/m2-authoring/assets/correct-org-da.png', 'Check organisation', 280, 140),
@@ -221,8 +223,9 @@ function renderMarkdown(raw) {
     const imgMatch = part.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
     if (imgMatch) {
       const image = document.createElement('img');
-      image.src = imgMatch[2];
-      image.alt = imgMatch[1];
+      const [, alt, src] = imgMatch;
+      image.src = src;
+      image.alt = alt;
       image.onerror = () => { image.style.display = 'none'; };
       el.appendChild(image);
     } else {
@@ -333,7 +336,7 @@ export default function decorate(block) {
   const state = {
     messages: [{
       role: 'assistant',
-      content: `Welcome! I\'m your Adobe Virtual Trainer for **${courseName}**.\n\nI\'ll guide you through each exercise one step at a time.\n\nReady to start with Module 1? Or jump to any section using the panel on the left.`,
+      content: `Welcome! I'm your Adobe Virtual Trainer for **${courseName}**.\n\nI'll guide you through each exercise one step at a time.\n\nReady to start with Module 1? Or jump to any section using the panel on the left.`,
     }],
     loading: false,
     imsToken: null,
@@ -347,37 +350,6 @@ export default function decorate(block) {
   let sendBtn;
   let activeSectionEl;
   let userAvatarEl;
-
-  /* ── IMS token listeners ── */
-  document.addEventListener('ims:ready', (e) => {
-    state.imsToken = e.detail?.token || null;
-    /* Enable input now that we have a token */
-    if (textarea) {
-      textarea.disabled = false;
-      textarea.placeholder = 'Ask anything, or say \'done\' to move to the next step…';
-      updateSendBtn();
-    }
-  });
-
-  document.addEventListener('ims:profile', (e) => {
-    const { profile } = e.detail || {};
-    if (profile && userAvatarEl) {
-      /* Show initials from profile name */
-      const name = profile.displayName || profile.first_name || '';
-      const initials = name.split(' ').map((n) => n[0]).join('').slice(0, 2)
-        .toUpperCase();
-      if (initials) userAvatarEl.textContent = initials;
-    }
-  });
-
-  document.addEventListener('ims:signedout', () => {
-    state.imsToken = null;
-    if (textarea) {
-      textarea.disabled = true;
-      textarea.placeholder = 'Please sign in to continue…';
-      updateSendBtn();
-    }
-  });
 
   /* ── Helper functions ── */
   function appendMessage(msg) {
@@ -423,6 +395,35 @@ export default function decorate(block) {
     sendBtn.innerHTML = '';
     sendBtn.appendChild(svgSend(active));
   }
+
+  /* ── IMS token listeners — registered after helpers are defined ── */
+  document.addEventListener('ims:ready', (e) => {
+    state.imsToken = e.detail?.token || null;
+    if (textarea) {
+      textarea.disabled = false;
+      textarea.placeholder = "Ask anything, or say 'done' to move to the next step…";
+      updateSendBtn();
+    }
+  });
+
+  document.addEventListener('ims:profile', (e) => {
+    const { profile } = e.detail || {};
+    if (profile && userAvatarEl) {
+      const name = profile.displayName || profile.first_name || '';
+      const initials = name.split(' ').map((n) => n[0]).join('').slice(0, 2)
+        .toUpperCase();
+      if (initials) userAvatarEl.textContent = initials;
+    }
+  });
+
+  document.addEventListener('ims:signedout', () => {
+    state.imsToken = null;
+    if (textarea) {
+      textarea.disabled = true;
+      textarea.placeholder = 'Please sign in to continue…';
+      updateSendBtn();
+    }
+  });
 
   async function sendChat(actualContent, displayContent) {
     if (state.loading || !state.imsToken) return;
@@ -629,7 +630,7 @@ export default function decorate(block) {
 
   chipsEl = document.createElement('div');
   chipsEl.className = 'vt-chips';
-  ['Let\'s start Module 1', 'What is DA?', 'Show me the slash menu'].forEach((label) => {
+  ["Let's start Module 1", 'What is DA?', 'Show me the slash menu'].forEach((label) => {
     const chip = document.createElement('button');
     chip.className = 'vt-chip';
     chip.textContent = label;
