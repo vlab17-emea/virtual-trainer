@@ -1,0 +1,12 @@
+<script>
+window.adobeid = {
+  client_id: 'virtual-trainer-yukon-portal-web',
+  scope: 'AdobeID,openid',
+  locale: 'en_US',
+  environment: 'stg1',
+  onAccessToken(t) { document.body.innerHTML += '<p>TOKEN: ' + (t.token || t) + '</p>'; },
+  onReady() { document.body.innerHTML += '<p>READY. Signed in: ' + window.adobeIMS.isSignedInUser() + '</p>'; },
+  onError(e) { document.body.innerHTML += '<p>ERROR: ' + JSON.stringify(e) + '</p>'; }
+};
+</script>
+<script src="https://auth-stg1.services.adobe.com/imslib/imslib.min.js"></script>
