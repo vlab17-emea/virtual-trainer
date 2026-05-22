@@ -63,12 +63,8 @@
       scope: 'AdobeID,openid,read_organizations',
       locale: 'en_US',
       environment: 'stg1',
+      uses_redirect_mode: true,
       redirect_uri: 'https://trainer.learn-adobe-ai.com/ims-test.html',
-      api_parameters: {
-        authorize: {
-          redirect_uri: 'https://trainer.learn-adobe-ai.com/ims-test.html',
-        },
-      },
       onAccessToken(tokenInfo) {
         const token = typeof tokenInfo === 'string' ? tokenInfo : tokenInfo.token;
         log('✅ onAccessToken fired — token received!', 'ok');
