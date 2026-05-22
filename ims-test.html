@@ -1,12 +1,92 @@
-<script>
-window.adobeid = {
-  client_id: 'virtual-trainer-yukon-portal-web',
-  scope: 'AdobeID,openid',
-  locale: 'en_US',
-  environment: 'stg1',
-  onAccessToken(t) { document.body.innerHTML += '<p>TOKEN: ' + (t.token || t) + '</p>'; },
-  onReady() { document.body.innerHTML += '<p>READY. Signed in: ' + window.adobeIMS.isSignedInUser() + '</p>'; },
-  onError(e) { document.body.innerHTML += '<p>ERROR: ' + JSON.stringify(e) + '</p>'; }
-};
-</script>
-<script src="https://auth-stg1.services.adobe.com/imslib/imslib.min.js"></script>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>IMS Test</title>
+  <style>
+    body { font-family: sans-serif; padding: 40px; max-width: 600px; }
+    .result { margin: 10px 0; padding: 12px; border-radius: 6px; font-size: 14px; }
+    .ok { background: #e8f5e9; color: #2e7d32; }
+    .err { background: #fce4ec; color: #c62828; }
+    .info { background: #e3f2fd; color: #1565c0; }
+    button { padding: 10px 20px; background: #fa0f00; color: white; border: none;
+             border-radius: 6px; cursor: pointer; font-size: 14px; margin: 5px 5px 0 0; }
+  </style>
+</head>
+<body>
+  <h2>IMS Auth Test</h2>
+  <div id="log"></div>
+  <div id="actions"></div>
+
+  <script>
+    /* Safe logger — works even if called before DOMContentLoaded */
+    function log(msg, type) {
+      function write() {
+        const d = document.createElement('div');
+        d.className = `result ${type || 'info'}`;
+        d.textContent = msg;
+        document.getElementById('log').appendChild(d);
+      }
+      if (document.getElementById('log')) {
+        write();
+      } else {
+        document.addEventListener('DOMContentLoaded', write);
+      }
+    }
+
+    function showSignIn() {
+      const actions = document.getElementById('actions');
+      if (!actions) return;
+      actions.innerHTML = '';
+      const btn = document.createElement('button');
+      btn.textContent = 'Sign In';
+      btn.onclick = () => {
+        log('Initiating sign in...', 'info');
+        window.adobeIMS.signIn();
+      };
+      actions.appendChild(btn);
+    }
+
+    function showSignOut() {
+      const actions = document.getElementById('actions');
+      if (!actions) return;
+      actions.innerHTML = '';
+      const btn = document.createElement('button');
+      btn.textContent = 'Sign Out';
+      btn.onclick = () => window.adobeIMS.signOut();
+      actions.appendChild(btn);
+    }
+
+    window.adobeid = {
+      client_id: 'virtual-trainer-yukon-portal-web',
+      scope: 'AdobeID,openid,read_organizations',
+      locale: 'en_US',
+      environment: 'stg1',
+      onAccessToken(tokenInfo) {
+        const token = typeof tokenInfo === 'string' ? tokenInfo : tokenInfo.token;
+        log('✅ onAccessToken fired — token received!', 'ok');
+        log('Token (first 60 chars): ' + token.substring(0, 60) + '...', 'ok');
+        showSignOut();
+      },
+      onReady() {
+        const signedIn = window.adobeIMS.isSignedInUser();
+        log('onReady fired — signed in: ' + signedIn, 'info');
+        if (signedIn) {
+          showSignOut();
+        } else {
+          showSignIn();
+        }
+      },
+      onError(e) {
+        log('❌ IMS error: ' + JSON.stringify(e), 'err');
+      },
+      onSignOut() {
+        log('Signed out successfully', 'info');
+        showSignIn();
+      },
+    };
+  </script>
+  <script src="https://auth-stg1.services.adobe.com/imslib/imslib.min.js"></script>
+</body>
+</html>
