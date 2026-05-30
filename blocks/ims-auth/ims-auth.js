@@ -20,7 +20,7 @@ const IMS_LIB = {
   prod: 'https://auth.services.adobe.com/imslib/imslib.min.js',
 };
 
-const DEFAULT_SCOPE = 'AdobeID,openid,read_organizations,additional_info.ownerOrg';
+const DEFAULT_SCOPE = 'AdobeID,openid,read_organizations';
 
 /* ── SVG Adobe wordmark ── */
 function svgAdobeA() {
