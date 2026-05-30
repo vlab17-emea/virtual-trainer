@@ -632,4 +632,16 @@ export default function decorate(block) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
   });
   sendBtn.addEventListener('click', send);
+
+  /* ── Check if token already available (ims:ready fired before this block) ── */
+  if (window.adobeIMS?.getAccessToken) {
+    const tokenInfo = window.adobeIMS.getAccessToken();
+    const token = tokenInfo && (typeof tokenInfo === 'string' ? tokenInfo : tokenInfo.token);
+    if (token) {
+      state.imsToken = token;
+      textarea.disabled = false;
+      textarea.placeholder = "Ask anything, or say 'done' to move to the next step…";
+      updateSendBtn();
+    }
+  }
 }
