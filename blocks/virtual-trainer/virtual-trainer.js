@@ -633,15 +633,21 @@ export default function decorate(block) {
   });
   sendBtn.addEventListener('click', send);
 
-  /* ── Check if token already available (ims:ready fired before this block) ── */
-  if (window.adobeIMS?.getAccessToken) {
+  /* ── Poll for token if ims:ready already fired before this block registered ── */
+  const pollToken = setInterval(() => {
+    if (state.imsToken) { clearInterval(pollToken); return; }
+    if (!window.adobeIMS?.getAccessToken) return;
     const tokenInfo = window.adobeIMS.getAccessToken();
     const token = tokenInfo && (typeof tokenInfo === 'string' ? tokenInfo : tokenInfo.token);
     if (token) {
+      clearInterval(pollToken);
       state.imsToken = token;
       textarea.disabled = false;
       textarea.placeholder = "Ask anything, or say 'done' to move to the next step…";
       updateSendBtn();
     }
-  }
+  }, 200);
+
+  /* Stop polling after 30s to avoid memory leak */
+  setTimeout(() => clearInterval(pollToken), 30000);
 }
