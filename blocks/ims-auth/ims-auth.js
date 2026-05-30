@@ -88,7 +88,7 @@ function showGate(container) {
   btn.textContent = 'Sign in with Adobe ID';
   btn.addEventListener('click', () => {
     showLoading(container, 'Redirecting to Adobe sign in…');
-    window.adobeIMS.signIn();
+    window.adobeIMS.signIn({}, undefined, 'code');
   });
 
   const footer = document.createElement('p');
@@ -131,6 +131,15 @@ export default function decorate(block) {
     locale: 'en_US',
     environment: env,
     autoValidateToken: false,
+    uses_redirect_mode: true,
+    redirect_uri: window.location.origin + window.location.pathname,
+    response_type: 'code',
+    api_parameters: {
+      authorize: {
+        response_type: 'code',
+        code_challenge_method: 'S256',
+      },
+    },
     onAccessToken(tokenInfo) {
       /* Fires with { token, expire, sid } when user is signed in */
       const token = typeof tokenInfo === 'string' ? tokenInfo : (tokenInfo?.token || null);
