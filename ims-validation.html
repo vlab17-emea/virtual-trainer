@@ -3,36 +3,66 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>IMS Test Prod v1</title>
+  <title>IMS Validation — Virtual Trainer</title>
   <style>
-    body { font-family: sans-serif; padding: 40px; max-width: 600px; }
-    .result { margin: 10px 0; padding: 12px; border-radius: 6px; font-size: 14px; }
-    .ok { background: #e8f5e9; color: #2e7d32; }
-    .err { background: #fce4ec; color: #c62828; }
+    body { font-family: sans-serif; padding: 40px; max-width: 700px; }
+    h2 { color: #fa0f00; }
+    .result { margin: 8px 0; padding: 12px; border-radius: 6px; font-size: 13px; line-height: 1.5; }
+    .ok   { background: #e8f5e9; color: #2e7d32; }
+    .err  { background: #fce4ec; color: #c62828; }
     .info { background: #e3f2fd; color: #1565c0; }
-    button { padding: 10px 20px; background: #fa0f00; color: white; border: none;
-             border-radius: 6px; cursor: pointer; font-size: 14px; margin: 5px 5px 0 0; }
+    .warn { background: #fff8e1; color: #f57f17; }
+    pre   { white-space: pre-wrap; word-break: break-all; font-size: 12px; margin: 0; }
+    button {
+      padding: 10px 20px; background: #fa0f00; color: white;
+      border: none; border-radius: 6px; cursor: pointer;
+      font-size: 14px; margin: 5px 5px 0 0;
+    }
+    button:hover { background: #d00c00; }
+    button.secondary {
+      background: #555;
+    }
+    button.secondary:hover { background: #333; }
+    hr { border: none; border-top: 1px solid #eee; margin: 20px 0; }
   </style>
 </head>
 <body>
-  <h2>IMS Test Prod v1</h2>
+  <h2>IMS Validation — Virtual Trainer</h2>
+  <p style="font-size:13px;color:#888;">Environment: <strong>Prod IMS → Yukon Stage</strong></p>
   <div id="log"></div>
   <div id="actions"></div>
 
   <script>
-    /* Safe logger — works even if called before DOMContentLoaded */
+    const YUKON_HOST = 'https://yukon-stage.adobe.io';
+    const COLLECTION_ID = '0d3151f2-74ec-423e-9685-c1f79a6e7f5b';
+
     function log(msg, type) {
       function write() {
         const d = document.createElement('div');
         d.className = `result ${type || 'info'}`;
-        d.textContent = msg;
+        if (typeof msg === 'object') {
+          const pre = document.createElement('pre');
+          pre.textContent = JSON.stringify(msg, null, 2);
+          d.appendChild(pre);
+        } else {
+          d.textContent = msg;
+        }
         document.getElementById('log').appendChild(d);
       }
-      if (document.getElementById('log')) {
-        write();
-      } else {
-        document.addEventListener('DOMContentLoaded', write);
-      }
+      if (document.getElementById('log')) write();
+      else document.addEventListener('DOMContentLoaded', write);
+    }
+
+    function getToken() {
+      const tokenInfo = window.adobeIMS?.getAccessToken?.();
+      if (!tokenInfo) return null;
+      return typeof tokenInfo === 'string' ? tokenInfo : (tokenInfo.token || null);
+    }
+
+    function decodeToken(token) {
+      try {
+        return JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      } catch { return null; }
     }
 
     function showSignIn() {
@@ -40,22 +70,90 @@
       if (!actions) return;
       actions.innerHTML = '';
       const btn = document.createElement('button');
-      btn.textContent = 'Sign In';
+      btn.textContent = 'Sign In with Adobe ID';
       btn.onclick = () => {
-        log('Initiating sign in (code flow)...', 'info');
+        log('Initiating sign in (Authorization Code + PKCE)…', 'info');
         window.adobeIMS.signIn({}, undefined, 'code');
       };
       actions.appendChild(btn);
     }
 
-    function showSignOut() {
+    function showSignedIn(token) {
       const actions = document.getElementById('actions');
       if (!actions) return;
       actions.innerHTML = '';
-      const btn = document.createElement('button');
-      btn.textContent = 'Sign Out';
-      btn.onclick = () => window.adobeIMS.signOut();
-      actions.appendChild(btn);
+
+      const payload = decodeToken(token);
+
+      log('✅ Signed in — token received', 'ok');
+      if (payload) {
+        log(`Token info: as=${payload.as} | client_id=${payload.client_id} | user=${payload.user_id || payload.sub || '—'}`, 'ok');
+        if (payload.as && payload.as.includes('stg')) {
+          log('⚠️ Token is from IMS Stage — Yukon Stage may reject this. Expected: ims-na1 (Prod)', 'warn');
+        } else {
+          log(`✅ Token environment looks correct: ${payload.as}`, 'ok');
+        }
+      }
+      log(`Token (first 60 chars): ${token.substring(0, 60)}…`, 'info');
+
+      const hr = document.createElement('hr');
+      actions.appendChild(hr);
+
+      const yukonBtn = document.createElement('button');
+      yukonBtn.textContent = 'Test Yukon API Call';
+      yukonBtn.onclick = () => testYukon(token);
+      actions.appendChild(yukonBtn);
+
+      const signOutBtn = document.createElement('button');
+      signOutBtn.textContent = 'Sign Out';
+      signOutBtn.className = 'secondary';
+      signOutBtn.onclick = () => window.adobeIMS.signOut();
+      actions.appendChild(signOutBtn);
+    }
+
+    async function testYukon(token) {
+      log('Calling Yukon Stage inference endpoint…', 'info');
+      try {
+        const res = await fetch(`${YUKON_HOST}/api/v2/inference/question-answer`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            request_id: crypto.randomUUID(),
+            collections: [COLLECTION_ID],
+            inputs: 'What is DA?',
+            response_format: {
+              format: 'AUTO',
+              style: 'CONCISE',
+              tone: 'AUTO',
+              reasoning: 'DISABLED',
+            },
+            source_options: ['COLLECTION'],
+            inference_mode: 'STANDARD',
+            file_generation: 'DISABLED',
+            time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+            enable_figures: false,
+            store: false,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          log(`❌ Yukon ${res.status}: ${data.message || data.title || JSON.stringify(data)}`, 'err');
+          log(data, 'err');
+          return;
+        }
+
+        const answer = data?.answer?.text || data?.answer || data?.output || data?.text || JSON.stringify(data);
+        log('✅ Yukon responded successfully!', 'ok');
+        log(`Answer: ${typeof answer === 'string' ? answer : JSON.stringify(answer)}`, 'ok');
+        log({ full_response: data }, 'info');
+      } catch (err) {
+        log(`❌ Fetch error: ${err.message}`, 'err');
+      }
     }
 
     window.adobeid = {
@@ -74,24 +172,26 @@
       },
       onAccessToken(tokenInfo) {
         const token = typeof tokenInfo === 'string' ? tokenInfo : tokenInfo.token;
-        log('✅ onAccessToken fired — token received!', 'ok');
-        log('Token (first 60 chars): ' + token.substring(0, 60) + '...', 'ok');
-        showSignOut();
+        if (token) showSignedIn(token);
       },
       onReady() {
         const signedIn = window.adobeIMS.isSignedInUser();
-        log('onReady fired — signed in: ' + signedIn, 'info');
-        if (signedIn) {
-          showSignOut();
-        } else {
-          showSignIn();
+        log(`onReady — signed in: ${signedIn}`, 'info');
+        if (!signedIn) showSignIn();
+        else {
+          const token = getToken();
+          if (token) showSignedIn(token);
+          else showSignIn();
         }
       },
       onError(e) {
-        log('❌ IMS error: ' + JSON.stringify(e), 'err');
+        log(`❌ IMS error: ${JSON.stringify(e)}`, 'err');
+        showSignIn();
       },
       onSignOut() {
-        log('Signed out successfully', 'info');
+        log('Signed out', 'info');
+        document.getElementById('log').innerHTML = '';
+        document.getElementById('actions').innerHTML = '';
         showSignIn();
       },
     };
