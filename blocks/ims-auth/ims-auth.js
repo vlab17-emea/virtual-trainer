@@ -158,10 +158,20 @@ export default function decorate(block) {
       }
     },
     onReady() {
-      /* onAccessToken already fired if signed in.
-         If we reach onReady and block is not yet signed-in, show gate. */
       if (!block.classList.contains('signed-in')) {
-        showGate(block);
+        /* Check if token already exists (returning user) */
+        const tokenInfo = window.adobeIMS?.getAccessToken?.();
+        const token = tokenInfo && (typeof tokenInfo === 'string' ? tokenInfo : tokenInfo.token);
+        if (token) {
+          block.classList.add('signed-in');
+          block.innerHTML = '';
+          document.dispatchEvent(new CustomEvent('ims:ready', { detail: { token } }));
+          window.adobeIMS.getProfile().then((profile) => {
+            document.dispatchEvent(new CustomEvent('ims:profile', { detail: { token, profile } }));
+          }).catch(() => {});
+        } else {
+          showGate(block);
+        }
       }
     },
     onError(error) {
