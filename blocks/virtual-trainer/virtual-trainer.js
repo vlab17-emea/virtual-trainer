@@ -78,7 +78,8 @@ async function callYukon(messages, collectionId, yukonHost, imsToken) {
   /* Extract answer text from Yukon response shape.
      v2 Q&A returns: { answer: { text: '...' }, attributions: [...] }
      Fall back gracefully if shape differs.                              */
-  const answer = data?.answer?.text
+  const answer = data?.generated_text
+    || data?.answer?.text
     || data?.answer
     || data?.output
     || data?.text
