@@ -92,69 +92,76 @@ async function callYukon(messages, collectionId, yukonHost, imsToken) {
 /* ── Course structure ────────────────────────────────────────────────────── */
 const MODULES = [
   {
-    id: 'm1',
-    title: 'Basic Authoring',
-    sections: ['Access DA', 'Create a Page', 'Add Content'],
-  },
-  {
-    id: 'm2',
-    title: 'Blocks & Document Structure',
+    id: 'w1',
+    title: 'Week 1: Platform Orientation',
     sections: [
-      'Add and Delete the Columns Block',
-      'Add a Block from the Library',
-      'Use the Slash Menu',
-      'Create Space Between Blocks',
-      'Edit Menu Block Tools',
-      'Search Library and Add a Hero Block',
-      'Create a Hero Auto-Block',
+      'ALM Platform Navigation',
+      'Cohort Orientation & Expectations',
+      'Get Started with Experience Platform',
+      'Verify Existing Data Structure',
+      'Dataflow Architecture Overview',
     ],
   },
   {
-    id: 'm3',
-    title: 'Preview & Publishing',
+    id: 'w2',
+    title: 'Week 2: Data Modeling',
     sections: [
-      'Explore Live Preview',
-      'Preflight Check',
-      'Preview the Page',
-      'AEM Sidekick (Optional)',
-      'Publish the Document',
-      'Unpublish the Document',
-      'Timeline and Versioning',
-      'Folder Status View',
+      'Manage Sandbox Packages',
+      'Create Attribute XDM Schemas',
+      'Create Event XDM Schemas',
+      'Manage Data Governance',
+      'Connect Schema to Dataset',
     ],
   },
   {
-    id: 'm4',
-    title: 'Media & Assets',
+    id: 'w3',
+    title: 'Week 3: Data Ingestion',
     sections: [
-      'Drag-and-Drop Images',
-      'Images from the assets Folder',
-      'AEM Assets Images',
-      'Embed Block for Video',
+      'Ingest via Source Connector',
+      'Ingest via API',
+      'Ingest via Streaming',
+      'Monitor Dataflow',
+      'Manage Data Hygiene',
     ],
   },
   {
-    id: 'm5',
-    title: 'Pages, URLs & Metadata',
-    sections: ['Add a Metadata Block'],
+    id: 'w4',
+    title: 'Week 4: Data Collection',
+    sections: [
+      'Introduction to Data Collection',
+      'Create Tag Properties',
+      'Stream Website Data to AEP',
+      'Real-Time Customer Profile',
+    ],
   },
   {
-    id: 'm6',
-    title: 'Reusable Content',
+    id: 'w5',
+    title: 'Week 5: Audiences & Activation',
     sections: [
-      'Create a Document from a Template',
-      'Update the Article',
-      'Include a Fragment',
-      'Publish and Verify',
+      'Create Audiences',
+      'Configure Destinations',
+      'Activate Audiences to Destinations',
+      'Query Data from Data Lake',
+    ],
+  },
+  {
+    id: 'w6',
+    title: 'Week 6: Capstone & Wrap-Up',
+    sections: [
+      'Capstone Project Preparation',
+      'Peer Review Sessions',
+      'Capstone Presentations',
+      'Certification Exam Preparation',
+      'Course Wrap-Up & Reflections',
     ],
   },
 ];
 
 const RESOURCES = [
-  { icon: '🌐', label: 'DA Live', url: 'https://da.live' },
-  { icon: '📖', label: 'EDS Documentation', url: 'https://www.aem.live/docs' },
-  { icon: '🔧', label: 'AEM Sidekick', url: 'https://www.aem.live/docs/sidekick' },
-  { icon: '📁', label: 'Exercise Files', url: '#' },
+  { icon: '🌐', label: 'AEP Documentation', url: 'https://experienceleague.adobe.com/docs/experience-platform.html' },
+  { icon: '📚', label: 'Experience League', url: 'https://experienceleague.adobe.com' },
+  { icon: '🎓', label: 'My Cohorts', url: 'https://learning.adobe.com' },
+  { icon: '💬', label: 'Community Forums', url: 'https://experienceleaguecommunities.adobe.com' },
 ];
 
 /* ── Markdown renderer ───────────────────────────────────────────────────── */
@@ -270,7 +277,7 @@ export default function decorate(block) {
     }
   });
 
-  const courseName = config.course || 'Adobe Training Course';
+  const courseName = config.course || 'Configure and Manage Adobe Experience Platform';
   const collectionId = config.collection || '';
   const yukonHost = config.yukon || 'https://yukon-stage.adobe.io';
 
@@ -278,7 +285,7 @@ export default function decorate(block) {
   const state = {
     messages: [{
       role: 'assistant',
-      content: `Welcome! I'm your Adobe Virtual Trainer for **${courseName}**.\n\nI'll guide you through each exercise one step at a time.\n\nReady to start with Module 1? Or jump to any section using the panel on the left.`,
+      content: 'Welcome to the **AEP Learning Cohort**! I\'m your Virtual Trainer for *Configure and Manage Adobe Experience Platform*.\n\nI can help you with course content, answer questions about AEP, recap what was covered in sessions, and guide you through the capstone project.\n\nWhat would you like to explore today?',
     }],
     loading: false,
     imsToken: null,
@@ -572,7 +579,7 @@ export default function decorate(block) {
 
   chipsEl = document.createElement('div');
   chipsEl.className = 'vt-chips';
-  ["Let's start Module 1", 'What is DA?', 'Show me the slash menu'].forEach((label) => {
+  ['What ingestion methods did we cover?', "I missed Monday's session — what happened?", 'Help me with the capstone project'].forEach((label) => {
     const chip = document.createElement('button');
     chip.className = 'vt-chip';
     chip.textContent = label;
