@@ -10,7 +10,7 @@ body:has(.ims-auth) {
 }
 
 /* Hide the raw block table before JS runs */
-.ims-auth > div {
+.ims-auth > div:not(.ims-gate) {
   display: none;
 }
 
