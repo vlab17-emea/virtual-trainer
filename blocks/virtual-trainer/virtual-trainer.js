@@ -392,6 +392,90 @@ export default function decorate(block) {
     }
   });
 
+  const ISSUE_KEYWORDS = [
+    'slow', 'performance', 'degradation', 'service status',
+    'known issue', 'outage', 'incident', 'not working', 'taking ages',
+  ];
+
+  function isKnownIssueResponse(text) {
+    const lower = text.toLowerCase();
+    return ISSUE_KEYWORDS.some((kw) => lower.includes(kw));
+  }
+
+  function showNotificationCard() {
+    /* Don't show more than once */
+    if (messagesEl.querySelector('.vt-notify-card')) return;
+
+    const card = document.createElement('div');
+    card.className = 'vt-notify-card';
+
+    const cardText = document.createElement('div');
+    cardText.className = 'vt-notify-text';
+    cardText.textContent = '2 cohort members have reported this issue. Would you like to receive email updates?';
+
+    const btnRow = document.createElement('div');
+    btnRow.className = 'vt-notify-btns';
+
+    const yesBtn = document.createElement('button');
+    yesBtn.className = 'vt-notify-btn primary';
+    yesBtn.textContent = 'Yes, notify me';
+
+    const noBtn = document.createElement('button');
+    noBtn.className = 'vt-notify-btn';
+    noBtn.textContent = 'No thanks';
+
+    btnRow.appendChild(yesBtn);
+    btnRow.appendChild(noBtn);
+    card.appendChild(cardText);
+    card.appendChild(btnRow);
+    messagesEl.appendChild(card);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+
+    noBtn.addEventListener('click', () => {
+      card.remove();
+    });
+
+    yesBtn.addEventListener('click', () => {
+      /* Replace buttons with email input */
+      btnRow.remove();
+      cardText.textContent = 'Enter your email address and we\'ll notify you of any updates:';
+
+      const emailRow = document.createElement('div');
+      emailRow.className = 'vt-notify-email-row';
+
+      const emailInput = document.createElement('input');
+      emailInput.type = 'email';
+      emailInput.className = 'vt-notify-email-input';
+      emailInput.placeholder = 'your@email.com';
+
+      const submitBtn = document.createElement('button');
+      submitBtn.className = 'vt-notify-btn primary';
+      submitBtn.textContent = 'Notify me';
+
+      emailRow.appendChild(emailInput);
+      emailRow.appendChild(submitBtn);
+      card.appendChild(emailRow);
+      emailInput.focus();
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+
+      function confirmEmail() {
+        const email = emailInput.value.trim();
+        if (!email || !email.includes('@')) {
+          emailInput.style.borderColor = 'var(--s2-accent)';
+          return;
+        }
+        emailRow.remove();
+        cardText.textContent = `✅ Thanks — we'll notify you at ${email} if there are any updates on this issue.`;
+        card.classList.add('confirmed');
+      }
+
+      submitBtn.addEventListener('click', confirmEmail);
+      emailInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') confirmEmail();
+      });
+    });
+  }
+
   async function sendChat(actualContent, displayContent) {
     if (state.loading || !state.imsToken) return;
     const display = displayContent || actualContent;
@@ -406,6 +490,7 @@ export default function decorate(block) {
       state.messages.push({ role: 'assistant', content: text });
       hideTyping();
       appendMessage({ role: 'assistant', content: text });
+      if (isKnownIssueResponse(text)) showNotificationCard();
     } catch (err) {
       hideTyping();
       appendMessage({ role: 'assistant', content: `⚠️ ${err.message || 'Something went wrong. Please try again.'}` });
