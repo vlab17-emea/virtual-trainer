@@ -5,6 +5,7 @@
  * DA authoring — add as a table on your page AFTER the ims-auth block:
  * | virtual-trainer |                                          |
  * | collection      | 0d3151f2-74ec-423e-9685-c1f79a6e7f5b   |
+ * | collection2     | 153b1fb9-1d5d-4b77-b0ea-1fecaa376d95   |
  * | course          | EDS Document Authoring for Authors       |
  * | yukon           | https://yukon-stage.adobe.io             |
  *
@@ -20,7 +21,7 @@
    Calls the Yukon Stage Q&A inference endpoint with the user's IMS token.
    The conversation history is maintained client-side; each call sends the
    full history so Yukon has context for follow-up questions.               */
-async function callYukon(messages, collectionId, yukonHost, imsToken) {
+async function callYukon(messages, collectionIds, yukonHost, imsToken) {
   if (!imsToken) throw new Error('No IMS token available — please sign in.');
 
   /* Build a single question string from the latest user message.
@@ -40,6 +41,7 @@ async function callYukon(messages, collectionId, yukonHost, imsToken) {
     : lastUserMsg.content;
 
   const endpoint = `${yukonHost}/api/v2/inference/question-answer`;
+  const collections = Array.isArray(collectionIds) ? collectionIds : [collectionIds];
 
   const res = await fetch(endpoint, {
     method: 'POST',
@@ -49,19 +51,35 @@ async function callYukon(messages, collectionId, yukonHost, imsToken) {
     },
     body: JSON.stringify({
       request_id: crypto.randomUUID(),
-      collections: [collectionId],
+      collections,
       inputs: question,
       response_format: {
         format: 'AUTO',
         style: 'CONCISE',
-        tone: 'AUTO',
+        tone: 'EMPATHETIC',
         reasoning: 'DISABLED',
+        custom_instructions: `You are the Cohort Companion for the Adobe Experience Platform 6-week learning cohort: "Configure and Manage Adobe Experience Platform".
+
+CURRENT CONTEXT:
+- It is Week 2 of 6. Week 1 is complete.
+- The Monday 1 June session has been completed. The next session is Thursday 4 June at 15:00 CEST.
+- Week 2 topics: sandbox management, XDM schema design (attributes and events), data governance, connecting schemas to datasets.
+
+BEHAVIOUR:
+- Be warm, encouraging and practical. Speak like a knowledgeable peer, not a helpdesk or product manual.
+- Keep answers focused and digestible. Students are busy — give a clear, direct answer first, then offer to go deeper if needed. Do not write long responses unprompted.
+- When a student mentions they missed a session, acknowledge it supportively and help them catch up rather than just listing content.
+- Use document metadata (week number, session type, document type) to provide contextually relevant answers.
+- The capstone project is required for completion credit — mention it proactively when relevant.
+- The cohort is global and EMEA-based. Use clear language and avoid idioms that do not translate well.
+- Do not include citation superscripts such as [^1] or [^2] in your responses. Do not reference document sources inline.
+- If the answer is not clearly supported by the course materials, say so honestly. Do not guess. Suggest the student ask their instructor or check Experience League directly at experienceleague.adobe.com.`,
       },
       source_options: ['COLLECTION'],
       inference_mode: 'STANDARD',
       file_generation: 'DISABLED',
       time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
-      enable_figures: true,
+      enable_figures: false,
       store: false,
     }),
   });
@@ -277,6 +295,8 @@ export default function decorate(block) {
 
   const courseName = config.course || 'Configure and Manage Adobe Experience Platform';
   const collectionId = config.collection || '';
+  const collectionId2 = config.collection2 || '';
+  const collectionIds = [collectionId, collectionId2].filter(Boolean);
   const yukonHost = config.yukon || 'https://yukon-stage.adobe.io';
 
   /* ── State ── */
@@ -382,7 +402,7 @@ export default function decorate(block) {
     showTyping();
     updateSendBtn();
     try {
-      const text = await callYukon(state.messages, collectionId, yukonHost, state.imsToken);
+      const text = await callYukon(state.messages, collectionIds, yukonHost, state.imsToken);
       state.messages.push({ role: 'assistant', content: text });
       hideTyping();
       appendMessage({ role: 'assistant', content: text });
