@@ -128,16 +128,16 @@ body:has(.virtual-trainer) .virtual-trainer-wrapper {
   line-height: var(--s2-line-height-default);
 }
 
-/* ── Header ── */
+/* ── Header — Adobe Learning style ── */
 .vt-header {
-  height: var(--s2-header-height);
+  height: 56px;
   flex-shrink: 0;
-  background: var(--s2-accent);
+  background: #fff;
+  border-bottom: 1px solid var(--s2-border);
   display: flex;
   align-items: center;
   padding: 0 var(--s2-spacing-300);
-  gap: var(--s2-spacing-150);
-  box-shadow: var(--s2-shadow-md);
+  gap: var(--s2-spacing-300);
   z-index: 10;
 }
 
@@ -145,25 +145,33 @@ body:has(.virtual-trainer) .virtual-trainer-wrapper {
   display: flex;
   align-items: center;
   gap: var(--s2-spacing-100);
+  flex-shrink: 0;
+  line-height: 0;
 }
 
 .vt-wordmark span {
-  color: white;
-  font-size: var(--s2-font-size-200);
-  font-weight: var(--s2-font-weight-bold);
-  letter-spacing: 0.02em;
+  display: none;
 }
 
 .vt-header-divider {
-  width: 1px;
-  height: 20px;
-  background: rgb(255 255 255 / 25%);
+  display: none;
 }
 
 .vt-header-title {
-  color: rgb(255 255 255 / 90%);
+  color: var(--s2-text-secondary);
   font-size: var(--s2-font-size-200);
-  font-weight: var(--s2-font-weight-medium);
+  font-weight: var(--s2-font-weight-regular);
+  white-space: nowrap;
+}
+
+.vt-header-title::before {
+  content: 'Cohort Home';
+  margin-right: var(--s2-spacing-300);
+}
+
+.vt-header-title::after {
+  content: 'Experience League';
+  margin-left: var(--s2-spacing-300);
 }
 
 .vt-header-meta {
@@ -174,29 +182,29 @@ body:has(.virtual-trainer) .virtual-trainer-wrapper {
 }
 
 .vt-header-course {
-  color: rgb(255 255 255 / 65%);
-  font-size: var(--s2-font-size-100);
+  display: none;
 }
 
 .vt-avatar {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--s2-radius-full);
-  background: rgb(255 255 255 / 20%);
-  border: 1.5px solid rgb(255 255 255 / 35%);
+  background: #1473e6;
+  border: none;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  font-size: var(--s2-font-size-75);
+  font-size: var(--s2-font-size-100);
   font-weight: var(--s2-font-weight-bold);
+  cursor: pointer;
 }
 
 .vt-sign-out {
   background: none;
-  border: 1px solid rgb(255 255 255 / 35%);
+  border: 1px solid var(--s2-border);
   border-radius: var(--s2-radius-sm);
-  color: rgb(255 255 255 / 85%);
+  color: var(--s2-text-secondary);
   font-size: var(--s2-font-size-75);
   font-family: inherit;
   padding: var(--s2-spacing-50) var(--s2-spacing-100);
@@ -206,9 +214,9 @@ body:has(.virtual-trainer) .virtual-trainer-wrapper {
 }
 
 .vt-sign-out:hover {
-  background: rgb(255 255 255 / 15%);
-  border-color: rgb(255 255 255 / 60%);
-  color: white;
+  background: var(--s2-gray-100);
+  border-color: var(--s2-gray-400);
+  color: var(--s2-text-primary);
 }
 
 /* ── Body ── */

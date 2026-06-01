@@ -201,12 +201,13 @@ function svgEl(tag, attrs) {
 }
 
 function svgAdobeA() {
-  const svg = svgEl('svg', {
-    width: '26', height: '20', viewBox: '0 0 26 20', fill: 'none',
-  });
-  svg.appendChild(svgEl('path', { d: 'M15.6 0H26L10.4 20H0L15.6 0Z', fill: 'white' }));
-  svg.appendChild(svgEl('path', { d: 'M10.4 0H0V20L10.4 0Z', fill: 'rgba(255,255,255,0.5)' }));
-  return svg;
+  const div = document.createElement('div');
+  const s = '<svg width="34" height="26" viewBox="0 0 26 20" fill="none"'
+    + ' xmlns="http://www.w3.org/2000/svg">'
+    + '<path d="M15.6 0H26L10.4 20H0L15.6 0Z" fill="#eb1000"/>'
+    + '<path d="M10.4 0H0V20L10.4 0Z" fill="#ff6251"/></svg>';
+  div.innerHTML = s;
+  return div.firstChild;
 }
 
 function svgPerson(size) {
