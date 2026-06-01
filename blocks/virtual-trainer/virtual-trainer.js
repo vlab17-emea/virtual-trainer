@@ -286,11 +286,11 @@ export default function decorate(block) {
   const state = {
     messages: [{
       role: 'assistant',
-      content: 'Welcome to the **AEP Learning Cohort**! I\'m your Virtual Trainer for *Configure and Manage Adobe Experience Platform*.\n\nI can help you with course content, answer questions about AEP, recap what was covered in sessions, and guide you through the capstone project.\n\nWhat would you like to explore today?',
+      content: 'Hi! I\'m your **Cohort Companion** for *Configure and Manage Adobe Experience Platform*.\n\nI can help you catch up on sessions you missed, answer AEP questions, and guide you through this week\'s activities.\n\nWhat do you need help with today?',
     }],
     loading: false,
     imsToken: null,
-    openModules: { m1: true },
+    openModules: { w2: true },
   };
 
   /* ── DOM refs ── */
@@ -470,18 +470,18 @@ export default function decorate(block) {
 
   const courseInfo = document.createElement('div');
   courseInfo.className = 'vt-course-info';
-  const courseLabel = document.createElement('div');
-  courseLabel.className = 'vt-course-label';
-  courseLabel.textContent = 'Activity Guide';
+  const courseWeek = document.createElement('div');
+  courseWeek.className = 'vt-course-week';
+  courseWeek.textContent = 'Week 2 of 6';
   const courseTitle = document.createElement('div');
   courseTitle.className = 'vt-course-title';
   courseTitle.textContent = courseName;
-  const courseSub = document.createElement('div');
-  courseSub.className = 'vt-course-sub';
-  courseSub.textContent = `for Authors · ${MODULES.length} modules`;
-  courseInfo.appendChild(courseLabel);
+  const courseMeeting = document.createElement('div');
+  courseMeeting.className = 'vt-course-meeting';
+  courseMeeting.innerHTML = '📅 Next meeting: <strong>Thu 4 June, 15:00 CEST</strong>';
+  courseInfo.appendChild(courseWeek);
   courseInfo.appendChild(courseTitle);
-  courseInfo.appendChild(courseSub);
+  courseInfo.appendChild(courseMeeting);
 
   const moduleList = document.createElement('div');
   moduleList.className = 'vt-module-list';
@@ -545,8 +545,63 @@ export default function decorate(block) {
     resources.appendChild(a);
   });
 
+  /* Cohort feed */
+  const FEED_POSTS = [
+    {
+      text: 'Missing menu items in wk 2 ex 3?', author: 'James', team: 'Team 1', time: 'Mon 09:14',
+    },
+    {
+      text: 'System slow today?', author: 'Sarah', team: 'Team 2', time: 'Mon 10:32',
+    },
+    {
+      text: 'Great session yesterday! Keep it up 🙌', author: 'Miguel', team: 'Team 5', time: 'Mon 11:05',
+    },
+    {
+      text: 'Cohort team list and meeting planning', author: 'Priya', team: 'Team 1', time: 'Mon 14:22',
+    },
+  ];
+
+  const feedSection = document.createElement('div');
+  feedSection.className = 'vt-feed-section';
+
+  const feedHeader = document.createElement('div');
+  feedHeader.className = 'vt-feed-header';
+  const feedLabel = document.createElement('div');
+  feedLabel.className = 'vt-feed-label';
+  feedLabel.textContent = 'Cohort Feed';
+  const feedChevron = svgChevron();
+  feedChevron.classList.add('open');
+  feedHeader.appendChild(feedLabel);
+  feedHeader.appendChild(feedChevron);
+
+  const feedList = document.createElement('div');
+  feedList.className = 'vt-feed-list open';
+
+  FEED_POSTS.forEach((post) => {
+    const item = document.createElement('div');
+    item.className = 'vt-feed-item';
+    const postText = document.createElement('div');
+    postText.className = 'vt-feed-text';
+    postText.textContent = post.text;
+    const postMeta = document.createElement('div');
+    postMeta.className = 'vt-feed-meta';
+    postMeta.textContent = `${post.author}, ${post.team} · ${post.time}`;
+    item.appendChild(postText);
+    item.appendChild(postMeta);
+    feedList.appendChild(item);
+  });
+
+  feedHeader.addEventListener('click', () => {
+    feedList.classList.toggle('open');
+    feedChevron.classList.toggle('open');
+  });
+
+  feedSection.appendChild(feedHeader);
+  feedSection.appendChild(feedList);
+
   left.appendChild(courseInfo);
   left.appendChild(moduleList);
+  left.appendChild(feedSection);
   left.appendChild(resources);
 
   /* Chat panel */
@@ -559,15 +614,8 @@ export default function decorate(block) {
   const trainerInfo = document.createElement('div');
   const trainerName = document.createElement('div');
   trainerName.className = 'vt-trainer-name';
-  trainerName.textContent = 'Adobe Virtual Trainer';
-  const trainerStatus = document.createElement('div');
-  trainerStatus.className = 'vt-trainer-status';
-  const dot = document.createElement('div');
-  dot.className = 'vt-status-dot';
-  trainerStatus.appendChild(dot);
-  trainerStatus.appendChild(document.createTextNode('Powered by Yukon RAG'));
+  trainerName.textContent = 'Cohort Companion';
   trainerInfo.appendChild(trainerName);
-  trainerInfo.appendChild(trainerStatus);
 
   activeSectionEl = document.createElement('div');
   activeSectionEl.className = 'vt-active-section';

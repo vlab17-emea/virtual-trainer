@@ -243,7 +243,7 @@ body:has(.virtual-trainer) .virtual-trainer-wrapper {
   background: var(--s2-background);
 }
 
-.vt-course-label {
+.vt-course-week {
   font-size: var(--s2-font-size-75);
   font-weight: var(--s2-font-weight-bold);
   color: var(--s2-accent);
@@ -259,10 +259,71 @@ body:has(.virtual-trainer) .virtual-trainer-wrapper {
   line-height: var(--s2-line-height-tight);
 }
 
-.vt-course-sub {
+.vt-course-meeting {
   font-size: var(--s2-font-size-75);
   color: var(--s2-text-subtle);
-  margin-top: var(--s2-spacing-50);
+  margin-top: var(--s2-spacing-75);
+}
+
+.vt-course-meeting strong {
+  color: var(--s2-text-secondary);
+}
+
+/* ── Cohort Feed ── */
+.vt-feed-section {
+  border-top: 1px solid var(--s2-border);
+}
+
+.vt-feed-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--s2-spacing-100) var(--s2-spacing-200);
+  cursor: pointer;
+  user-select: none;
+}
+
+.vt-feed-header:hover {
+  background: var(--s2-background-layer-2);
+}
+
+.vt-feed-label {
+  font-size: var(--s2-font-size-75);
+  font-weight: var(--s2-font-weight-bold);
+  color: var(--s2-text-disabled);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.vt-feed-list {
+  display: none;
+}
+
+.vt-feed-list.open {
+  display: block;
+}
+
+.vt-feed-item {
+  padding: var(--s2-spacing-100) var(--s2-spacing-200);
+  border-bottom: 1px solid var(--s2-border-subtle);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.vt-feed-item:hover {
+  background: var(--s2-background-layer-2);
+}
+
+.vt-feed-text {
+  font-size: var(--s2-font-size-100);
+  color: var(--s2-text-primary);
+  line-height: var(--s2-line-height-tight);
+}
+
+.vt-feed-meta {
+  font-size: var(--s2-font-size-75);
+  color: var(--s2-text-disabled);
+  margin-top: 3px;
 }
 
 .vt-module-list {
