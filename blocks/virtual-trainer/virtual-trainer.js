@@ -6,6 +6,7 @@
  * | virtual-trainer |                                          |
  * | collection      | 0d3151f2-74ec-423e-9685-c1f79a6e7f5b   |
  * | collection2     | 153b1fb9-1d5d-4b77-b0ea-1fecaa376d95   |
+ * | collection3     | <status-collection-id>                 |
  * | course          | EDS Document Authoring for Authors       |
  * | yukon           | https://yukon-stage.adobe.io             |
  *
@@ -296,7 +297,8 @@ export default function decorate(block) {
   const courseName = config.course || 'Configure and Manage Adobe Experience Platform';
   const collectionId = config.collection || '';
   const collectionId2 = config.collection2 || '';
-  const collectionIds = [collectionId, collectionId2].filter(Boolean);
+  const collectionId3 = config.collection3 || '';
+  const collectionIds = [collectionId, collectionId2, collectionId3].filter(Boolean);
   const yukonHost = config.yukon || 'https://yukon-stage.adobe.io';
 
   /* ── State ── */
