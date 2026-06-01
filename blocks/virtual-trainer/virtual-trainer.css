@@ -109,6 +109,12 @@ body:has(.virtual-trainer) main {
 }
 
 
+body:has(.virtual-trainer) .section.ims-auth-container,
+body:has(.virtual-trainer) .ims-auth-wrapper {
+  margin: 0;
+  padding: 0;
+}
+
 body:has(.virtual-trainer) .virtual-trainer-wrapper {
   max-width: none;
   padding: 0;
@@ -260,13 +266,14 @@ body:has(.virtual-trainer) .virtual-trainer-wrapper {
 }
 
 .vt-course-meeting {
-  font-size: var(--s2-font-size-75);
-  color: var(--s2-text-subtle);
+  font-size: var(--s2-font-size-300);
+  color: var(--s2-accent);
   margin-top: var(--s2-spacing-75);
+  font-weight: var(--s2-font-weight-semibold);
 }
 
 .vt-course-meeting strong {
-  color: var(--s2-text-secondary);
+  color: var(--s2-accent);
 }
 
 /* ── Cohort Feed ── */
@@ -316,6 +323,7 @@ body:has(.virtual-trainer) .virtual-trainer-wrapper {
 
 .vt-feed-text {
   font-size: var(--s2-font-size-100);
+  font-weight: var(--s2-font-weight-semibold);
   color: var(--s2-text-primary);
   line-height: var(--s2-line-height-tight);
 }
@@ -690,9 +698,9 @@ body:has(.virtual-trainer) .virtual-trainer-wrapper {
 }
 
 .vt-send {
-  width: 36px;
-  height: 36px;
-  border-radius: var(--s2-radius-md);
+  width: 32px;
+  height: 32px;
+  border-radius: var(--s2-radius-full);
   background: var(--s2-gray-200);
   border: none;
   cursor: not-allowed;
@@ -716,7 +724,7 @@ body:has(.virtual-trainer) .virtual-trainer-wrapper {
   text-align: center;
   margin-top: var(--s2-spacing-75);
   font-size: var(--s2-font-size-75);
-  color: var(--s2-gray-300);
+  color: var(--s2-text-subtle);
 }
 
 /* ── Animations ── */

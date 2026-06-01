@@ -245,15 +245,12 @@ function svgChevron() {
 function svgSend(active) {
   const color = active ? 'white' : '#bbb';
   const svg = svgEl('svg', {
-    width: '15', height: '15', viewBox: '0 0 24 24', fill: 'none',
+    width: '16', height: '16', viewBox: '0 0 24 24', fill: 'none',
   });
   svg.appendChild(svgEl('path', {
-    d: 'M22 2L11 13', stroke: color, 'stroke-width': '2', 'stroke-linecap': 'round',
-  }));
-  svg.appendChild(svgEl('path', {
-    d: 'M22 2L15 22L11 13L2 9L22 2Z',
+    d: 'M12 19V5M5 12l7-7 7 7',
     stroke: color,
-    'stroke-width': '2',
+    'stroke-width': '2.5',
     'stroke-linecap': 'round',
     'stroke-linejoin': 'round',
   }));
@@ -473,14 +470,10 @@ export default function decorate(block) {
   const courseWeek = document.createElement('div');
   courseWeek.className = 'vt-course-week';
   courseWeek.textContent = 'Week 2 of 6';
-  const courseTitle = document.createElement('div');
-  courseTitle.className = 'vt-course-title';
-  courseTitle.textContent = courseName;
   const courseMeeting = document.createElement('div');
   courseMeeting.className = 'vt-course-meeting';
   courseMeeting.innerHTML = '📅 Next meeting: <strong>Thu 4 June, 15:00 CEST</strong>';
   courseInfo.appendChild(courseWeek);
-  courseInfo.appendChild(courseTitle);
   courseInfo.appendChild(courseMeeting);
 
   const moduleList = document.createElement('div');
@@ -657,7 +650,7 @@ export default function decorate(block) {
 
   const hint = document.createElement('div');
   hint.className = 'vt-input-hint';
-  hint.textContent = 'Enter to send · Shift+Enter for new line';
+  hint.textContent = 'Cohort Companion is AI and can make mistakes. If in doubt check with your instructor!';
 
   inputWrap.appendChild(textarea);
   inputWrap.appendChild(sendBtn);
