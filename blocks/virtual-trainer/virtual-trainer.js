@@ -393,7 +393,6 @@ export default function decorate(block) {
   /* ── Lightbox ── */
   const lightbox = document.createElement('div');
   lightbox.className = 'vt-lightbox';
-  lightbox.hidden = true;
   const lightboxImg = document.createElement('img');
   lightboxImg.className = 'vt-lightbox-img';
   const lightboxClose = document.createElement('button');
@@ -406,12 +405,12 @@ export default function decorate(block) {
 
   function openLightbox(src) {
     lightboxImg.src = src;
-    lightbox.hidden = false;
+    lightbox.classList.add('open');
     document.body.style.overflow = 'hidden';
   }
 
   function closeLightbox() {
-    lightbox.hidden = true;
+    lightbox.classList.remove('open');
     document.body.style.overflow = '';
   }
 

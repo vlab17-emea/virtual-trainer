@@ -970,10 +970,14 @@ body:has(.virtual-trainer) .virtual-trainer-wrapper {
   inset: 0;
   z-index: 1000;
   background: rgb(0 0 0 / 85%);
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
   animation: vt-fade-up 0.15s ease;
+}
+
+.vt-lightbox.open {
+  display: flex;
 }
 
 .vt-lightbox-img {
