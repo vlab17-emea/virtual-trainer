@@ -187,14 +187,18 @@ const RESOURCES = [
 function renderMarkdown(raw) {
   const BASE = 'https://main--virtual-trainer--vlab17-emea.aem.live/activity-guide-images/week2';
   const el = document.createElement('span');
-  /* Split on both standard markdown images and {{img:...}} tokens */
-  const parts = raw.split(/(!\[[^\]]*\]\([^)]+\)|\{\{img:[^}]+\}\})/g);
+
+  /* Split into segments: images, detail blocks, and normal text */
+  const parts = raw.split(/(!\[[^\]]*\]\([^)]+\)|\{\{img:[^}]+\}\}|\*\*More detail:\*\*[^\n]*(?:\n(?!\d+\.)(?!\{\{img)(?!\*\*More detail)[^\n]*)*)/g);
+
   parts.forEach((part) => {
     const imgMatch = part.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
     const tokenMatch = part.match(/^\{\{img:([^}]+)\}\}$/);
+    const detailMatch = part.match(/^\*\*More detail:\*\*([\s\S]*)$/);
+
     if (imgMatch) {
-      const image = document.createElement('img');
       const [, alt, src] = imgMatch;
+      const image = document.createElement('img');
       image.src = src;
       image.alt = alt;
       image.className = 'vt-activity-img';
@@ -209,7 +213,22 @@ function renderMarkdown(raw) {
       image.loading = 'lazy';
       image.onerror = () => { image.style.display = 'none'; };
       el.appendChild(image);
-    } else {
+    } else if (detailMatch) {
+      const detail = document.createElement('details');
+      detail.className = 'vt-detail-block';
+      const summary = document.createElement('summary');
+      summary.textContent = 'More detail';
+      const body = document.createElement('div');
+      body.className = 'vt-detail-body';
+      body.innerHTML = detailMatch[1].trim()
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/\*\*([^*\n]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/`([^`\n]+)`/g, '<code>$1</code>')
+        .replace(/\n/g, '<br>');
+      detail.appendChild(summary);
+      detail.appendChild(body);
+      el.appendChild(detail);
+    } else if (part.trim()) {
       const span = document.createElement('span');
       span.innerHTML = part
         .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -647,9 +666,13 @@ export default function decorate(block) {
 
   /* ── Step-by-step mode ── */
   function parseSteps(text) {
-    return text.split(/(?=\n\d+\.\s|\n#{1,3}\s)/g)
+    /* Find where numbered steps begin — skip any intro paragraphs */
+    const firstStep = text.search(/\n\d+\.\s/);
+    const stepsText = firstStep > -1 ? text.slice(firstStep) : text;
+    /* Split on each numbered step */
+    return stepsText.split(/(?=\n\d+\.\s)/g)
       .map((s) => s.trim())
-      .filter(Boolean);
+      .filter((s) => /^\d+\./.test(s));
   }
 
   function showFullActivity(text, activityId) {

@@ -1071,3 +1071,43 @@ body:has(.virtual-trainer) .virtual-trainer-wrapper {
   border-top: 1px solid var(--s2-border-subtle);
   padding-top: var(--s2-spacing-150);
 }
+
+/* ── More detail collapsible ── */
+.vt-detail-block {
+  margin-top: var(--s2-spacing-100);
+  border: 1px solid var(--s2-border);
+  border-radius: var(--s2-radius-sm);
+  overflow: hidden;
+}
+
+.vt-detail-block summary {
+  padding: var(--s2-spacing-75) var(--s2-spacing-150);
+  font-size: var(--s2-font-size-100);
+  font-weight: var(--s2-font-weight-semibold);
+  color: var(--s2-blue-600);
+  cursor: pointer;
+  user-select: none;
+  background: var(--s2-background-layer-2);
+  list-style: none;
+}
+
+.vt-detail-block summary::before {
+  content: '▶ ';
+  font-size: 9px;
+}
+
+.vt-detail-block[open] summary::before {
+  content: '▼ ';
+}
+
+.vt-detail-block summary:hover {
+  background: var(--s2-gray-200);
+}
+
+.vt-detail-body {
+  padding: var(--s2-spacing-150);
+  font-size: var(--s2-font-size-200);
+  color: var(--s2-text-secondary);
+  line-height: var(--s2-line-height-loose);
+  background: white;
+}
