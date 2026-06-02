@@ -86,9 +86,9 @@ body.appear {
   display: block;
 }
 
-header {
+/* header {
   height: var(--header-height);
-}
+} */
 
 header .header,
 footer .footer {
