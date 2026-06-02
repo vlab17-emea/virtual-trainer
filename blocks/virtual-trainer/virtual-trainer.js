@@ -22,7 +22,7 @@
    Calls the Yukon Stage Q&A inference endpoint with the user's IMS token.
    The conversation history is maintained client-side; each call sends the
    full history so Yukon has context for follow-up questions.               */
-async function callYukon(messages, collectionIds, yukonHost, imsToken) {
+async function callYukon(messages, collectionIds, yukonHost, imsToken, userInfo = {}) {
   if (!imsToken) throw new Error('No IMS token available — please sign in.');
 
   /* Build a single question string from the latest user message.
@@ -60,6 +60,12 @@ async function callYukon(messages, collectionIds, yukonHost, imsToken) {
         tone: 'EMPATHETIC',
         reasoning: 'DISABLED',
         custom_instructions: `You are the Cohort Companion for the Adobe Experience Platform 6-week learning cohort: "Configure and Manage Adobe Experience Platform".
+
+STUDENT CONTEXT:
+${userInfo.name ? `- Student name: ${userInfo.name}` : ''}
+${userInfo.email ? `- Student email: ${userInfo.email}` : ''}
+${userInfo.name ? '- Address the student by their first name when appropriate.' : ''}
+- When asked about their team, look up their email or name in the cohort team list document.
 
 CURRENT CONTEXT:
 - It is Week 2 of 6. Week 1 is complete.
@@ -342,6 +348,9 @@ export default function decorate(block) {
     loading: false,
     imsToken: null,
     openModules: { w2: true },
+    userName: null,
+    userEmail: null,
+    userFirstName: null,
   };
 
   /* ── DOM refs ── */
@@ -505,10 +514,32 @@ export default function decorate(block) {
   document.addEventListener('ims:profile', (e) => {
     const { profile } = e.detail || {};
     if (profile && userAvatarEl) {
-      const name = profile.displayName || profile.first_name || '';
-      const initials = name.split(' ').map((n) => n[0]).join('').slice(0, 2)
+      const fullName = profile.displayName
+        || `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
+        || '';
+      const firstName = profile.first_name || fullName.split(' ')[0] || '';
+      const email = profile.email || '';
+      const initials = fullName.split(' ').filter(Boolean)
+        .map((n) => n[0]).join('')
+        .slice(0, 2)
         .toUpperCase();
       if (initials) userAvatarEl.textContent = initials;
+
+      /* Store in state for use in Yukon custom_instructions */
+      state.userName = fullName;
+      state.userFirstName = firstName;
+      state.userEmail = email;
+
+      /* Personalise the welcome message if it hasn't been replaced yet */
+      if (state.messages.length === 1 && firstName) {
+        state.messages[0].content = `Hi ${firstName}! I'm your **Cohort Companion** for *Configure and Manage Adobe Experience Platform*.\n\nI can help you catch up on sessions you missed, answer AEP questions, and guide you through this week's activities.\n\nWhat do you need help with today?`;
+        /* Update the rendered bubble */
+        const firstBubble = messagesEl?.querySelector('.vt-bubble.assistant');
+        if (firstBubble) {
+          firstBubble.innerHTML = '';
+          firstBubble.appendChild(renderMarkdown(state.messages[0].content));
+        }
+      }
     }
   });
 
@@ -810,7 +841,13 @@ export default function decorate(block) {
     showTyping();
     updateSendBtn();
     try {
-      const text = await callYukon(state.messages, collectionIds, yukonHost, state.imsToken);
+      const text = await callYukon(
+        state.messages,
+        collectionIds,
+        yukonHost,
+        state.imsToken,
+        { name: state.userName, email: state.userEmail },
+      );
       state.messages.push({ role: 'assistant', content: text });
       hideTyping();
       const activityId = detectActivity(text);
