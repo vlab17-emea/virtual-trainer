@@ -8,16 +8,16 @@
 
 export default function decorate(block) {
   block.innerHTML = `
-    <div class="id-header">
+    <div class="id-topbar">
       <a class="id-logo" href="/">
         <svg width="34" height="26" viewBox="0 0 26 20" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M15.6 0H26L10.4 20H0L15.6 0Z" fill="#eb1000"/>
           <path d="M10.4 0H0V20L10.4 0Z" fill="#ff6251"/>
         </svg>
       </a>
-      <div class="id-header-divider"></div>
-      <div class="id-header-title">Instructor Dashboard</div>
-      <nav class="id-header-nav">
+      <div class="id-topbar-divider"></div>
+      <div class="id-topbar-title">Instructor Dashboard</div>
+      <nav class="id-topbar-nav">
         <a class="id-nav-link" href="/">Cohort Companion — Student View</a>
         <a class="id-nav-link" href="https://experienceleague.adobe.com" target="_blank" rel="noreferrer">Experience League</a>
         <a class="id-nav-link" href="https://learning.adobe.com" target="_blank" rel="noreferrer">Cohort Home</a>
