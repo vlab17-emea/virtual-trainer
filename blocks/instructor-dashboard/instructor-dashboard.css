@@ -2,14 +2,72 @@
    Instructor Dashboard Block
    ========================================================================== */
 
+/* ── Header ── */
+.id-header {
+  height: 56px;
+  background: #fff;
+  border-bottom: 1px solid #e9ecef;
+  display: flex;
+  align-items: center;
+  padding: 0 32px;
+  gap: 20px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.id-logo {
+  display: flex;
+  align-items: center;
+  line-height: 0;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.id-header-divider {
+  width: 1px;
+  height: 20px;
+  background: #e9ecef;
+  flex-shrink: 0;
+}
+
+.id-header-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #495057;
+  white-space: nowrap;
+}
+
+.id-header-nav {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-left: 12px;
+}
+
+.id-nav-link {
+  font-size: 14px;
+  color: #6c757d;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+
+.id-nav-link:hover {
+  color: #212529;
+}
+
 .instructor-dashboard {
   font-family: 'Adobe Clean', adobe-clean, 'Source Sans Pro', -apple-system, sans-serif;
   font-size: 14px;
   color: #212529;
   line-height: 1.5;
   background: #f8f9fa;
-  padding: 28px 32px;
   min-height: 100vh;
+}
+
+.id-page {
+  padding: 28px 32px;
 }
 
 /* ── Page header ── */
