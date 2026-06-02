@@ -1,11 +1,11 @@
 /* ==========================================================================
-   Virtual Trainer Block — Spectrum 2 aligned design
+   Virtual Trainer Block â€” Spectrum 2 aligned design
    Hardcoded Spectrum 2 design tokens as CSS custom properties
    ========================================================================== */
 
-/* ── Spectrum 2 Design Tokens ── */
+/* â”€â”€ Spectrum 2 Design Tokens â”€â”€ */
 :root {
-  /* Colors — Spectrum 2 light theme */
+  /* Colors â€” Spectrum 2 light theme */
   --s2-gray-50:  #fff;
   --s2-gray-75:  #fafafa;
   --s2-gray-100: #f5f5f5;
@@ -90,7 +90,7 @@
   --s2-component-height-md: 40px;
 }
 
-/* ── Full-bleed page reset ── */
+/* â”€â”€ Full-bleed page reset â”€â”€ */
 body:has(.virtual-trainer) {
   overflow: hidden;
   font-family: var(--s2-font);
@@ -109,14 +109,23 @@ body:has(.virtual-trainer) main {
 }
 
 
-body:has(.virtual-trainer) .section.ims-auth-container,
-body:has(.virtual-trainer) .ims-auth-wrapper,
-body:has(.virtual-trainer) .ims-auth.signed-in {
-  display: none !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  height: 0 !important;
-  overflow: hidden !important;
+body:has(.virtual-trainer) .ims-auth.signed-in,
+body:has(.virtual-trainer) .section.ims-auth-container:has(.ims-auth.signed-in) {
+  display: none;
+  margin: 0;
+  padding: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+body:has(.virtual-trainer) .section.ims-auth-container {
+  margin: 0;
+  padding: 0;
+}
+
+body:has(.virtual-trainer) .ims-auth-wrapper {
+  margin: 0;
+  padding: 0;
 }
 
 body:has(.virtual-trainer) .section {
@@ -131,7 +140,7 @@ body:has(.virtual-trainer) .virtual-trainer-wrapper {
   height: 100vh;
 }
 
-/* ── Block root ── */
+/* â”€â”€ Block root â”€â”€ */
 .virtual-trainer {
   display: flex;
   flex-direction: column;
@@ -143,7 +152,7 @@ body:has(.virtual-trainer) .virtual-trainer-wrapper {
   line-height: var(--s2-line-height-default);
 }
 
-/* ── Header — Adobe Learning style ── */
+/* â”€â”€ Header â€” Adobe Learning style â”€â”€ */
 .vt-header {
   height: 56px;
   flex-shrink: 0;
@@ -175,18 +184,28 @@ body:has(.virtual-trainer) .virtual-trainer-wrapper {
 .vt-header-title {
   color: var(--s2-text-secondary);
   font-size: var(--s2-font-size-200);
-  font-weight: var(--s2-font-weight-regular);
+  font-weight: var(--s2-font-weight-semibold);
   white-space: nowrap;
+  color: var(--s2-text-primary);
 }
 
-.vt-header-title::before {
-  content: 'Cohort Home';
-  margin-right: var(--s2-spacing-300);
-}
-
-.vt-header-title::after {
-  content: 'Experience League';
+.vt-header-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--s2-spacing-300);
   margin-left: var(--s2-spacing-300);
+}
+
+.vt-nav-link {
+  font-size: var(--s2-font-size-200);
+  color: var(--s2-text-secondary);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+
+.vt-nav-link:hover {
+  color: var(--s2-text-primary);
 }
 
 .vt-header-meta {
@@ -234,14 +253,14 @@ body:has(.virtual-trainer) .virtual-trainer-wrapper {
   color: var(--s2-text-primary);
 }
 
-/* ── Body ── */
+/* â”€â”€ Body â”€â”€ */
 .vt-body {
   display: flex;
   flex: 1;
   overflow: hidden;
 }
 
-/* ── Left panel ── */
+/* â”€â”€ Left panel â”€â”€ */
 .vt-left {
   width: var(--s2-sidebar-width);
   flex-shrink: 0;
@@ -285,7 +304,7 @@ body:has(.virtual-trainer) .virtual-trainer-wrapper {
   color: var(--s2-accent);
 }
 
-/* ── Cohort Feed ── */
+/* â”€â”€ Cohort Feed â”€â”€ */
 .vt-feed-section {
   border-top: 1px solid var(--s2-border);
 }
@@ -468,7 +487,7 @@ body:has(.virtual-trainer) .virtual-trainer-wrapper {
   text-decoration: underline;
 }
 
-/* ── Chat panel ── */
+/* â”€â”€ Chat panel â”€â”€ */
 .vt-chat {
   flex: 1;
   display: flex;
@@ -544,7 +563,7 @@ body:has(.virtual-trainer) .virtual-trainer-wrapper {
   display: block;
 }
 
-/* ── Messages ── */
+/* â”€â”€ Messages â”€â”€ */
 .vt-messages {
   flex: 1;
   overflow-y: auto;
@@ -611,7 +630,7 @@ body:has(.virtual-trainer) .virtual-trainer-wrapper {
   box-shadow: var(--s2-shadow-sm);
 }
 
-/* ── Typing indicator ── */
+/* â”€â”€ Typing indicator â”€â”€ */
 .vt-typing {
   display: flex;
   align-items: flex-end;
@@ -639,7 +658,7 @@ body:has(.virtual-trainer) .virtual-trainer-wrapper {
 .vt-dot:nth-child(2) { animation-delay: 0.17s; }
 .vt-dot:nth-child(3) { animation-delay: 0.34s; }
 
-/* ── Chips ── */
+/* â”€â”€ Chips â”€â”€ */
 .vt-chips {
   padding: 0 var(--s2-spacing-300) var(--s2-spacing-150);
   display: flex;
@@ -665,7 +684,7 @@ body:has(.virtual-trainer) .virtual-trainer-wrapper {
   background: #fff5f5;
 }
 
-/* ── Input area ── */
+/* â”€â”€ Input area â”€â”€ */
 .vt-input-area {
   padding: var(--s2-spacing-150) var(--s2-spacing-300) var(--s2-spacing-300);
   flex-shrink: 0;
@@ -736,7 +755,7 @@ body:has(.virtual-trainer) .virtual-trainer-wrapper {
   color: var(--s2-text-subtle);
 }
 
-/* ── Notification card ── */
+/* â”€â”€ Notification card â”€â”€ */
 .vt-notify-card {
   margin: 0 0 var(--s2-spacing-200) 44px;
   padding: var(--s2-spacing-150) var(--s2-spacing-200);
@@ -811,7 +830,6 @@ body:has(.virtual-trainer) .virtual-trainer-wrapper {
 .vt-notify-email-input:focus {
   border-color: var(--s2-blue-500);
 }
-
 @keyframes vt-bounce {
   0%,
   60%,
@@ -836,4 +854,59 @@ body:has(.virtual-trainer) .virtual-trainer-wrapper {
     opacity: 1;
     transform: translateY(0);
   }
+}
+/* â”€â”€ Exercise check card â”€â”€ */
+.vt-check-card {
+  margin: 0 0 var(--s2-spacing-200) 44px;
+  padding: var(--s2-spacing-150) var(--s2-spacing-200);
+  background: #f8f8f8;
+  border: 1px solid var(--s2-border);
+  border-radius: var(--s2-radius-md);
+  animation: vt-fade-up 0.18s ease;
+}
+
+.vt-check-status {
+  font-size: var(--s2-font-size-200);
+  color: var(--s2-text-subtle);
+  font-style: italic;
+}
+
+.vt-check-title {
+  font-size: var(--s2-font-size-200);
+  font-weight: var(--s2-font-weight-bold);
+  color: var(--s2-text-primary);
+  margin-bottom: var(--s2-spacing-150);
+}
+
+.vt-check-results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-75);
+  margin-bottom: var(--s2-spacing-150);
+}
+
+.vt-check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s2-spacing-100);
+  font-size: var(--s2-font-size-200);
+  line-height: var(--s2-line-height-tight);
+}
+
+.vt-check-row.warn {
+  color: var(--s2-text-primary);
+  font-weight: var(--s2-font-weight-semibold);
+}
+
+.vt-check-icon {
+  flex-shrink: 0;
+  width: 20px;
+}
+
+.vt-check-summary {
+  font-size: var(--s2-font-size-200);
+  color: var(--s2-text-secondary);
+  border-top: 1px solid var(--s2-border);
+  padding-top: var(--s2-spacing-150);
+  line-height: var(--s2-line-height-default);
 }
