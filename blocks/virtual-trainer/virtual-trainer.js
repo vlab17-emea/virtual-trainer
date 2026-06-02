@@ -320,6 +320,66 @@ export default function decorate(block) {
   let activeSectionEl;
   let userAvatarEl;
 
+  const BASE_IMG = 'https://main--virtual-trainer--vlab17-emea.aem.live/activity-guide-images/week2';
+
+  const ACTIVITY_IMAGES = {
+    2.2: { slug: 'activity-2-2-roles-permissions', count: 9 },
+    2.3: { slug: 'activity-2-3-import-package', count: 11 },
+    2.4: { slug: 'activity-2-4-attribute-schema', count: 23 },
+    2.5: { slug: 'activity-2-5-event-schema', count: 10 },
+    2.6: { slug: 'activity-2-6-data-usage-policy', count: 7 },
+    2.7: { slug: 'activity-2-7-governance-labels', count: 6 },
+    2.8: { slug: 'activity-2-8-schema-relationships', count: 20 },
+    '2.10': { slug: 'activity-2-10-schema-api', count: 20 },
+  };
+
+  function detectActivity(text) {
+    const m = text.match(/Activity\s+(2\.(?:10|\d))/i);
+    return m ? m[1] : null;
+  }
+
+  function showActivityImages(activityId) {
+    const def = ACTIVITY_IMAGES[activityId];
+    if (!def) return;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'vt-activity-images';
+
+    const label = document.createElement('div');
+    label.className = 'vt-activity-images-label';
+    label.textContent = `Activity ${activityId} — Screenshots (${def.count})`;
+
+    const toggle = document.createElement('button');
+    toggle.className = 'vt-activity-images-toggle';
+    toggle.textContent = 'Show screenshots';
+
+    const grid = document.createElement('div');
+    grid.className = 'vt-activity-images-grid';
+    grid.hidden = true;
+
+    for (let i = 1; i <= def.count; i += 1) {
+      const num = String(i).padStart(2, '0');
+      const url = `${BASE_IMG}/${def.slug}-${num}.png`;
+      const img = document.createElement('img');
+      img.src = url;
+      img.alt = `Activity ${activityId} step ${i}`;
+      img.className = 'vt-activity-img';
+      img.loading = 'lazy';
+      grid.appendChild(img);
+    }
+
+    toggle.addEventListener('click', () => {
+      grid.hidden = !grid.hidden;
+      toggle.textContent = grid.hidden ? 'Show screenshots' : 'Hide screenshots';
+    });
+
+    wrap.appendChild(label);
+    wrap.appendChild(toggle);
+    wrap.appendChild(grid);
+    messagesEl.appendChild(wrap);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
   /* ── Helper functions ── */
   function appendMessage(msg) {
     const row = document.createElement('div');
@@ -399,9 +459,68 @@ export default function decorate(block) {
     'known issue', 'outage', 'incident', 'not working', 'taking ages',
   ];
 
+  const CHECK_KEYWORDS = [
+    'check my', 'verify', 'did i do it right', 'sandbox correct',
+    'check the sandbox', 'check my work', 'set up correctly',
+    'done the exercises', 'finished the exercises', 'check my setup',
+  ];
+
   function isKnownIssueResponse(text) {
     const lower = text.toLowerCase();
     return ISSUE_KEYWORDS.some((kw) => lower.includes(kw));
+  }
+
+  function showExerciseCheckCard() {
+    if (messagesEl.querySelector('.vt-check-card')) return;
+
+    const card = document.createElement('div');
+    card.className = 'vt-check-card';
+
+    const checking = document.createElement('div');
+    checking.className = 'vt-check-status';
+    checking.textContent = '🔍 Checking your AEP environment...';
+    card.appendChild(checking);
+    messagesEl.appendChild(card);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+
+    setTimeout(() => {
+      checking.remove();
+
+      const title = document.createElement('div');
+      title.className = 'vt-check-title';
+      title.textContent = 'Week 2 Exercise Check — rob-freeman-dev';
+
+      const results = document.createElement('div');
+      results.className = 'vt-check-results';
+
+      [
+        { ok: true, text: 'Sandbox `rob-freeman-dev` active and correctly provisioned' },
+        { ok: true, text: 'Profile schema created with correct class and field groups' },
+        { ok: true, text: 'ExperienceEvent schema created correctly' },
+        { ok: false, text: 'Dataset not yet linked to Profile schema — revisit Exercise 4, Step 3' },
+        { ok: true, text: 'Data governance label C2 applied to identity fields' },
+      ].forEach(({ ok, text }) => {
+        const row = document.createElement('div');
+        row.className = `vt-check-row ${ok ? 'pass' : 'warn'}`;
+        const icon = document.createElement('span');
+        icon.className = 'vt-check-icon';
+        icon.textContent = ok ? '✅' : '⚠️';
+        const label = document.createElement('span');
+        label.textContent = text;
+        row.appendChild(icon);
+        row.appendChild(label);
+        results.appendChild(row);
+      });
+
+      const summary = document.createElement('div');
+      summary.className = 'vt-check-summary';
+      summary.textContent = 'Nearly there — just the dataset link to fix. That\'s a 5-minute task and you\'ll be fully ready for Thursday.';
+
+      card.appendChild(title);
+      card.appendChild(results);
+      card.appendChild(summary);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }, 2000);
   }
 
   function showNotificationCard() {
@@ -492,7 +611,11 @@ export default function decorate(block) {
       state.messages.push({ role: 'assistant', content: text });
       hideTyping();
       appendMessage({ role: 'assistant', content: text });
+      const activityId = detectActivity(text);
+      if (activityId) showActivityImages(activityId);
       if (isKnownIssueResponse(text)) showNotificationCard();
+      const userLower = actualContent.toLowerCase();
+      if (CHECK_KEYWORDS.some((kw) => userLower.includes(kw))) showExerciseCheckCard();
     } catch (err) {
       hideTyping();
       appendMessage({ role: 'assistant', content: `⚠️ ${err.message || 'Something went wrong. Please try again.'}` });
@@ -537,7 +660,23 @@ export default function decorate(block) {
   divider.className = 'vt-header-divider';
   const headerTitle = document.createElement('div');
   headerTitle.className = 'vt-header-title';
-  headerTitle.textContent = 'Virtual Trainer';
+  headerTitle.textContent = 'Cohort Companion';
+
+  /* Nav links */
+  const headerNav = document.createElement('nav');
+  headerNav.className = 'vt-header-nav';
+  [
+    { label: 'Instructor Area', href: '/instructor' },
+    { label: 'Experience League', href: 'https://experienceleague.adobe.com', external: true },
+    { label: 'Cohort Home', href: 'https://learning.adobe.com', external: true },
+  ].forEach(({ label, href, external }) => {
+    const a = document.createElement('a');
+    a.className = 'vt-nav-link';
+    a.href = href;
+    a.textContent = label;
+    if (external) { a.target = '_blank'; a.rel = 'noreferrer'; }
+    headerNav.appendChild(a);
+  });
   const headerMeta = document.createElement('div');
   headerMeta.className = 'vt-header-meta';
   const headerCourse = document.createElement('div');
@@ -562,6 +701,7 @@ export default function decorate(block) {
   header.appendChild(wordmark);
   header.appendChild(divider);
   header.appendChild(headerTitle);
+  header.appendChild(headerNav);
   header.appendChild(headerMeta);
 
   /* Body */
