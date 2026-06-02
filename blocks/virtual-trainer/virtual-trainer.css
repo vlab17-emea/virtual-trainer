@@ -1010,3 +1010,64 @@ body:has(.virtual-trainer) .virtual-trainer-wrapper {
 .vt-lightbox-close:hover {
   background: rgb(255 255 255 / 25%);
 }
+
+/* ── Step-by-step mode ── */
+.vt-step-mode-card {
+  margin: 0 0 var(--s2-spacing-200) 44px;
+  padding: var(--s2-spacing-150) var(--s2-spacing-200);
+  background: var(--s2-blue-soft, #e8f3ff);
+  border: 1px solid #c5dff8;
+  border-radius: var(--s2-radius-md);
+  animation: vt-fade-up 0.18s ease;
+}
+
+.vt-step-mode-msg {
+  font-size: var(--s2-font-size-200);
+  color: var(--s2-text-primary);
+  margin-bottom: var(--s2-spacing-150);
+  line-height: var(--s2-line-height-default);
+}
+
+.vt-step-mode-btns {
+  display: flex;
+  gap: var(--s2-spacing-100);
+}
+
+.vt-step-card {
+  margin: 0 0 var(--s2-spacing-200) 44px;
+  padding: var(--s2-spacing-200);
+  background: white;
+  border: 1px solid var(--s2-border);
+  border-radius: var(--s2-radius-md);
+  box-shadow: var(--s2-shadow-sm);
+  animation: vt-fade-up 0.18s ease;
+}
+
+.vt-step-complete {
+  text-align: center;
+  color: var(--s2-green-500);
+  font-weight: var(--s2-font-weight-semibold);
+}
+
+.vt-step-progress {
+  font-size: var(--s2-font-size-75);
+  font-weight: var(--s2-font-weight-bold);
+  color: var(--s2-accent);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: var(--s2-spacing-100);
+}
+
+.vt-step-content {
+  font-size: var(--s2-font-size-200);
+  color: var(--s2-text-primary);
+  line-height: var(--s2-line-height-loose);
+  margin-bottom: var(--s2-spacing-150);
+}
+
+.vt-step-btns {
+  display: flex;
+  gap: var(--s2-spacing-100);
+  border-top: 1px solid var(--s2-border-subtle);
+  padding-top: var(--s2-spacing-150);
+}

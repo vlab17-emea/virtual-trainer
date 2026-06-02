@@ -645,6 +645,130 @@ export default function decorate(block) {
     });
   }
 
+  /* ── Step-by-step mode ── */
+  function parseSteps(text) {
+    return text.split(/(?=\n\d+\.\s|\n#{1,3}\s)/g)
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+
+  function showFullActivity(text, activityId) {
+    appendMessage({ role: 'assistant', content: text });
+    if (activityId && !text.includes('{{img:')) showActivityImages(activityId, text);
+  }
+
+  function startStepByStep(text, activityId, onMoreDetail) {
+    const def = activityId ? ACTIVITY_IMAGES[activityId] : null;
+    const steps = parseSteps(text);
+    let current = 0;
+
+    function showStep(index) {
+      const prev = messagesEl.querySelector('.vt-step-card');
+      if (prev) prev.remove();
+
+      const step = steps[index];
+      if (!step) return;
+
+      const card = document.createElement('div');
+      card.className = 'vt-step-card';
+
+      const progress = document.createElement('div');
+      progress.className = 'vt-step-progress';
+      progress.textContent = `Step ${index + 1} of ${steps.length}`;
+
+      const content = document.createElement('div');
+      content.className = 'vt-step-content';
+      content.appendChild(renderMarkdown(step));
+
+      if (def && index < def.count) {
+        const num = String(index + 1).padStart(2, '0');
+        const img = document.createElement('img');
+        img.src = `${BASE_IMG}/${def.slug}-${num}.png`;
+        img.alt = `Step ${index + 1}`;
+        img.className = 'vt-activity-img';
+        img.loading = 'lazy';
+        content.appendChild(img);
+      }
+
+      const btnRow = document.createElement('div');
+      btnRow.className = 'vt-step-btns';
+
+      const moreBtn = document.createElement('button');
+      moreBtn.className = 'vt-notify-btn';
+      moreBtn.textContent = 'Tell me more';
+
+      const doneBtn = document.createElement('button');
+      doneBtn.className = 'vt-notify-btn primary';
+      doneBtn.textContent = index < steps.length - 1 ? 'Done — next step →' : 'Done — finish ✓';
+
+      btnRow.appendChild(moreBtn);
+      btnRow.appendChild(doneBtn);
+      card.appendChild(progress);
+      card.appendChild(content);
+      card.appendChild(btnRow);
+      messagesEl.appendChild(card);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+
+      doneBtn.addEventListener('click', () => {
+        if (index < steps.length - 1) {
+          current += 1;
+          showStep(current);
+        } else {
+          card.remove();
+          const done = document.createElement('div');
+          done.className = 'vt-step-card vt-step-complete';
+          done.textContent = '✅ Activity complete! Great work.';
+          messagesEl.appendChild(done);
+          messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+      });
+
+      moreBtn.addEventListener('click', () => {
+        const query = `Give me more detail on this step of the activity: ${step.slice(0, 120)}`;
+        onMoreDetail(query, 'Tell me more about this step');
+      });
+    }
+
+    showStep(current);
+  }
+
+  function showStepModeCard(fullText, activityId, onMoreDetail) {
+    const card = document.createElement('div');
+    card.className = 'vt-step-mode-card';
+
+    const msg = document.createElement('div');
+    msg.className = 'vt-step-mode-msg';
+    msg.textContent = 'I can walk you through this step by step, or show you everything at once. Which would you prefer?';
+
+    const btns = document.createElement('div');
+    btns.className = 'vt-step-mode-btns';
+
+    const stepBtn = document.createElement('button');
+    stepBtn.className = 'vt-notify-btn primary';
+    stepBtn.textContent = 'Step by step';
+
+    const allBtn = document.createElement('button');
+    allBtn.className = 'vt-notify-btn';
+    allBtn.textContent = 'Show everything';
+
+    btns.appendChild(stepBtn);
+    btns.appendChild(allBtn);
+    card.appendChild(msg);
+    card.appendChild(btns);
+    messagesEl.appendChild(card);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+
+    allBtn.addEventListener('click', () => {
+      card.remove();
+      showFullActivity(fullText, activityId);
+    });
+
+    stepBtn.addEventListener('click', () => {
+      card.remove();
+      startStepByStep(fullText, activityId, onMoreDetail);
+    });
+  }
+
   async function sendChat(actualContent, displayContent) {
     if (state.loading || !state.imsToken) return;
     const display = displayContent || actualContent;
@@ -658,11 +782,13 @@ export default function decorate(block) {
       const text = await callYukon(state.messages, collectionIds, yukonHost, state.imsToken);
       state.messages.push({ role: 'assistant', content: text });
       hideTyping();
-      appendMessage({ role: 'assistant', content: text });
-      /* Only show image strip if response has no inline tokens */
       const activityId = detectActivity(text);
-      if (activityId && !text.includes('{{img:')) showActivityImages(activityId, text);
-      if (isKnownIssueResponse(text)) showNotificationCard();
+      if (activityId) {
+        showStepModeCard(text, activityId, sendChat);
+      } else {
+        appendMessage({ role: 'assistant', content: text });
+        if (isKnownIssueResponse(text)) showNotificationCard();
+      }
       const userLower = actualContent.toLowerCase();
       if (CHECK_KEYWORDS.some((kw) => userLower.includes(kw))) showExerciseCheckCard();
     } catch (err) {
