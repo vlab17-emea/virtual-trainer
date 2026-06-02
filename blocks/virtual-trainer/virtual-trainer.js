@@ -534,7 +534,15 @@ export default function decorate(block) {
 
   function isKnownIssueResponse(text) {
     const lower = text.toLowerCase();
-    return ISSUE_KEYWORDS.some((kw) => lower.includes(kw));
+    const hasIssueKeyword = ISSUE_KEYWORDS.some((kw) => lower.includes(kw));
+    if (!hasIssueKeyword) return false;
+    /* Only trigger for current/active issues, not historical mentions */
+    const presentIndicators = [
+      'currently', 'right now', 'at this time', 'ongoing',
+      'adobe engineering', 'status:', 'emea region',
+      'reported this', 'cohort members have reported',
+    ];
+    return presentIndicators.some((kw) => lower.includes(kw));
   }
 
   function showExerciseCheckCard() {
