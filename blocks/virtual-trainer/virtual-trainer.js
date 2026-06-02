@@ -185,15 +185,28 @@ const RESOURCES = [
 
 /* ── Markdown renderer ───────────────────────────────────────────────────── */
 function renderMarkdown(raw) {
+  const BASE = 'https://main--virtual-trainer--vlab17-emea.aem.live/activity-guide-images/week2';
   const el = document.createElement('span');
-  const parts = raw.split(/(!\[[^\]]*\]\([^)]+\))/g);
+  /* Split on both standard markdown images and {{img:...}} tokens */
+  const parts = raw.split(/(!\[[^\]]*\]\([^)]+\)|\{\{img:[^}]+\}\})/g);
   parts.forEach((part) => {
     const imgMatch = part.match(/^!\[([^\]]*)\]\(([^)]+)\)$/);
+    const tokenMatch = part.match(/^\{\{img:([^}]+)\}\}$/);
     if (imgMatch) {
       const image = document.createElement('img');
       const [, alt, src] = imgMatch;
       image.src = src;
       image.alt = alt;
+      image.className = 'vt-activity-img';
+      image.onerror = () => { image.style.display = 'none'; };
+      el.appendChild(image);
+    } else if (tokenMatch) {
+      const [, imgName] = tokenMatch;
+      const image = document.createElement('img');
+      image.src = `${BASE}/${imgName}.png`;
+      image.alt = imgName;
+      image.className = 'vt-activity-img';
+      image.loading = 'lazy';
       image.onerror = () => { image.style.display = 'none'; };
       el.appendChild(image);
     } else {
@@ -338,46 +351,42 @@ export default function decorate(block) {
     return m ? m[1] : null;
   }
 
-  function showActivityImages(activityId) {
+  function showActivityImages(activityId, responseText) {
     const def = ACTIVITY_IMAGES[activityId];
     if (!def) return;
 
-    const wrap = document.createElement('div');
-    wrap.className = 'vt-activity-images';
+    /* Find the last assistant message bubble and rebuild it with images interleaved */
+    const bubbles = messagesEl.querySelectorAll('.vt-bubble.assistant');
+    const lastBubble = bubbles[bubbles.length - 1];
+    if (!lastBubble) return;
 
-    const label = document.createElement('div');
-    label.className = 'vt-activity-images-label';
-    label.textContent = `Activity ${activityId} — Screenshots (${def.count})`;
+    /* Split response into numbered steps */
+    const steps = responseText.split(/(?=\n?\d+\.\s)/);
 
-    const toggle = document.createElement('button');
-    toggle.className = 'vt-activity-images-toggle';
-    toggle.textContent = 'Show screenshots';
+    /* Rebuild bubble with images after each numbered step */
+    lastBubble.innerHTML = '';
+    let imgIndex = 0;
 
-    const grid = document.createElement('div');
-    grid.className = 'vt-activity-images-grid';
-    grid.hidden = true;
+    steps.forEach((step) => {
+      if (!step.trim()) return;
 
-    for (let i = 1; i <= def.count; i += 1) {
-      const num = String(i).padStart(2, '0');
-      const url = `${BASE_IMG}/${def.slug}-${num}.png`;
-      const img = document.createElement('img');
-      img.src = url;
-      img.alt = `Activity ${activityId} step ${i}`;
-      img.className = 'vt-activity-img';
-      img.loading = 'lazy';
-      grid.appendChild(img);
-    }
+      /* Render the step text */
+      const stepEl = renderMarkdown(step);
+      lastBubble.appendChild(stepEl);
 
-    toggle.addEventListener('click', () => {
-      grid.hidden = !grid.hidden;
-      toggle.textContent = grid.hidden ? 'Show screenshots' : 'Hide screenshots';
+      /* Insert next screenshot if available */
+      if (imgIndex < def.count) {
+        imgIndex += 1;
+        const num = String(imgIndex).padStart(2, '0');
+        const url = `${BASE_IMG}/${def.slug}-${num}.png`;
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = `Activity ${activityId} step ${imgIndex}`;
+        img.className = 'vt-activity-img';
+        img.loading = 'lazy';
+        lastBubble.appendChild(img);
+      }
     });
-
-    wrap.appendChild(label);
-    wrap.appendChild(toggle);
-    wrap.appendChild(grid);
-    messagesEl.appendChild(wrap);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
   /* ── Helper functions ── */
@@ -611,8 +620,9 @@ export default function decorate(block) {
       state.messages.push({ role: 'assistant', content: text });
       hideTyping();
       appendMessage({ role: 'assistant', content: text });
+      /* Only show image strip if response has no inline tokens */
       const activityId = detectActivity(text);
-      if (activityId) showActivityImages(activityId);
+      if (activityId && !text.includes('{{img:')) showActivityImages(activityId, text);
       if (isKnownIssueResponse(text)) showNotificationCard();
       const userLower = actualContent.toLowerCase();
       if (CHECK_KEYWORDS.some((kw) => userLower.includes(kw))) showExerciseCheckCard();
