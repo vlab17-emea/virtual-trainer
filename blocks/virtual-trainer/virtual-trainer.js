@@ -783,7 +783,8 @@ export default function decorate(block) {
       state.messages.push({ role: 'assistant', content: text });
       hideTyping();
       const activityId = detectActivity(text);
-      if (activityId) {
+      const isTellMeMore = actualContent.startsWith('Give me more detail on this step');
+      if (activityId && !isTellMeMore) {
         showStepModeCard(text, activityId, sendChat);
       } else {
         appendMessage({ role: 'assistant', content: text });
