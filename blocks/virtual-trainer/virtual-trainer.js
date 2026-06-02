@@ -390,6 +390,46 @@ export default function decorate(block) {
   }
 
   /* ── Helper functions ── */
+  /* ── Lightbox ── */
+  const lightbox = document.createElement('div');
+  lightbox.className = 'vt-lightbox';
+  lightbox.hidden = true;
+  const lightboxImg = document.createElement('img');
+  lightboxImg.className = 'vt-lightbox-img';
+  const lightboxClose = document.createElement('button');
+  lightboxClose.className = 'vt-lightbox-close';
+  lightboxClose.textContent = '✕';
+  lightboxClose.setAttribute('aria-label', 'Close');
+  lightbox.appendChild(lightboxImg);
+  lightbox.appendChild(lightboxClose);
+  document.body.appendChild(lightbox);
+
+  function openLightbox(src) {
+    lightboxImg.src = src;
+    lightbox.hidden = false;
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeLightbox() {
+    lightbox.hidden = true;
+    document.body.style.overflow = '';
+  }
+
+  lightboxClose.addEventListener('click', closeLightbox);
+  lightbox.addEventListener('click', (e) => {
+    if (e.target === lightbox) closeLightbox();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeLightbox();
+  });
+
+  /* Delegate click on any activity image */
+  document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('vt-activity-img')) {
+      openLightbox(e.target.src);
+    }
+  });
+
   function appendMessage(msg) {
     const row = document.createElement('div');
     row.className = `vt-message ${msg.role}`;
