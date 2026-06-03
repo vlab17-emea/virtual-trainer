@@ -78,7 +78,7 @@ BEHAVIOUR:
 - Do NOT remind the student about capstone requirements unless they specifically ask about the capstone.
 - Do NOT add closing remarks like "let me know if you need more help" or "hope that helps".
 - When a student mentions they missed a session, acknowledge it briefly and give the key points only.
-- Do not include citation superscripts such as [^1] or [^2] in your responses.
+- NEVER include citation markers, footnotes, superscripts, or reference numbers such as [^1], [1], ¹ or similar in any response. Do not reference document sources in any form.
 - If the answer is not clearly supported by the course materials, say so honestly in one sentence. Do not guess.`,
       },
       source_options: ['COLLECTION'],
@@ -110,7 +110,9 @@ BEHAVIOUR:
     || data?.response
     || JSON.stringify(data);
 
-  return typeof answer === 'string' ? answer : JSON.stringify(answer);
+  const raw = typeof answer === 'string' ? answer : JSON.stringify(answer);
+  /* Strip citation markers the model may add despite instructions */
+  return raw.replace(/\s*\[\^?\d+\]/g, '').replace(/\s*\^\d+/g, '');
 }
 
 /* ── Course structure ────────────────────────────────────────────────────── */
