@@ -499,7 +499,12 @@ export default function decorate(block) {
       if (listOpen) { parts.push('</ul>'); listOpen = false; }
     };
 
+    /* AI-support fields are for step-by-step mode only — strip from the full guide */
+    const AI_FIELDS = ['**Hint 1:**', '**Hint 2:**', '**Hint 3:**', '**Expected result:**'];
+
     lines.forEach((line) => {
+      if (AI_FIELDS.some((prefix) => line.startsWith(prefix))) return;
+
       /* Table rows — handle as a self-contained branch and return early */
       if (line.startsWith('|')) {
         const isSep = /^\|[-\s:|]+\|/.test(line);
