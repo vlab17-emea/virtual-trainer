@@ -119,72 +119,82 @@ BEHAVIOUR:
 async function callYukonExtract(activityId, collectionIds, yukonHost, imsToken) {
   if (!imsToken) throw new Error('No IMS token available.');
 
+  /* Collection 2 (index 1) contains the activity guides */
   const collections = Array.isArray(collectionIds) ? collectionIds : [collectionIds];
-  const endpoint = `${yukonHost}/api/v2/inference/extract`;
+  const activityCollection = collections[1] || collections[0];
+  const authHeaders = { Authorization: `Bearer ${imsToken}`, 'Content-Type': 'application/json' };
 
-  const schema = [
+  /* ── Step 1: Find the document UUID for this activity ── */
+  const docName = `activity-${activityId.replace('.', '-')}`;
+  const listUrl = `${yukonHost}/api/v2/collection/${activityCollection}/document?infix=${docName}&page_size=5`;
+  const listRes = await fetch(listUrl, { headers: authHeaders });
+  if (!listRes.ok) throw new Error(`Doc lookup failed ${listRes.status}`);
+  const listData = await listRes.json();
+  const docs = listData?.pages || listData?.items || listData || [];
+  const doc = Array.isArray(docs)
+    ? docs.find((d) => d.document_name && d.document_name.includes(docName)) : null;
+  if (!doc?.document_id) throw new Error(`Document not found for activity ${activityId}`);
+
+  /* ── Step 2: Extract with correct schema ── */
+  const extractProperties = [
     {
       property_name: 'activity_title',
       type: 'string',
       description: 'The full title of the activity',
       prompt: 'Extract the activity title exactly as written.',
+      strategy: 'STRICT',
+      extract_version: '2.0.0',
     },
     {
       property_name: 'outcome',
       type: 'string',
-      description: 'The intended outcome of the activity',
+      description: 'The intended learning outcome of the activity',
       prompt: 'Extract the outcome field from the document frontmatter exactly as written.',
+      strategy: 'STRICT',
+      extract_version: '2.0.0',
     },
     {
-      property_name: 'steps',
-      type: 'array',
-      description: 'All numbered steps in the activity across all tasks',
-      prompt: `Extract every numbered step from the document. For each step return a JSON object with these fields:
-- step_number (integer)
-- task (string): the brief one-sentence task description after "Task:" exactly as written
-- detail (string): the full instruction text after "Detail:" exactly as written
-- hint1 (string): the text after "Hint 1:" exactly as written, or empty string if none
-- hint2 (string): the text after "Hint 2:" exactly as written, or empty string if none  
-- expected_result (string): the text after "Expected result:" exactly as written
-- common_mistake (string): the text after "Common mistake:" exactly as written, or empty string if none
-- image_token (string): the {{img:...}} token on the line after the step content, exactly as written, or empty string if none
-Do not paraphrase. Return the text exactly as it appears in the document.`,
+      property_name: 'steps_json',
+      type: 'string',
+      description: 'All numbered steps serialised as a JSON array string',
+      prompt: 'Return ALL numbered steps from the document as a valid JSON array string (no markdown fences). Each element must be an object with keys: step_number (integer), task (text after "Task:" label), detail (text after "Detail:" label), hint1 (text after "Hint 1:" or empty string), hint2 (text after "Hint 2:" or empty string), expected_result (text after "Expected result:"), common_mistake (text after "Common mistake:" or empty string), image_token (the {{img:...}} token if present or empty string). Copy all text verbatim from the document.',
+      strategy: 'INTERPRETIVE',
+      extract_version: '2.0.0',
     },
   ];
 
-  const res = await fetch(endpoint, {
+  const extractRes = await fetch(`${yukonHost}/api/v2/inference/extract`, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${imsToken}`,
-      'Content-Type': 'application/json',
-    },
+    headers: authHeaders,
     body: JSON.stringify({
-      request_id: crypto.randomUUID(),
-      collections,
-      inputs: `Extract all steps from the structured exercise guide for Activity ${activityId}. Document filename: activity-${activityId.replace('.', '-')}-attribute-schema-v2`,
-      extraction_schema: schema,
-      source_options: ['COLLECTION'],
-      inference_mode: 'STANDARD',
-      store: false,
+      document_ids: [doc.document_id],
+      document_namespace: activityCollection,
+      extract_properties: extractProperties,
     }),
   });
 
-  if (!res.ok) {
-    const errText = await res.text().catch(() => res.statusText);
-    throw new Error(`Yukon extract error ${res.status}: ${errText}`);
+  if (!extractRes.ok) {
+    const errText = await extractRes.text().catch(() => extractRes.statusText);
+    throw new Error(`Yukon extract error ${extractRes.status}: ${errText}`);
   }
 
-  const data = await res.json();
+  const data = await extractRes.json();
 
-  /* Extract API returns array of { property_name, value, confidence, explanation } */
-  const results = data?.results || data?.extractions || data?.data || [];
+  /* Response: array of ExtractInferenceResponse, one per document.
+     Each has extracted_properties: [{ name, value, confidence }]    */
+  const docResult = Array.isArray(data) ? data[0] : data;
+  const props = docResult?.extracted_properties || [];
   const extracted = {};
-  results.forEach((r) => { extracted[r.property_name] = r.value; });
+  props.forEach((p) => { extracted[p.name] = p.value; });
 
-  /* Parse steps — value may be JSON string or already an array */
-  let steps = extracted.steps || [];
-  if (typeof steps === 'string') {
-    try { steps = JSON.parse(steps); } catch { steps = []; }
+  /* steps_json is a JSON array string — strip any markdown fences */
+  let steps = [];
+  const stepsRaw = extracted.steps_json || '';
+  if (stepsRaw) {
+    try {
+      const cleaned = stepsRaw.replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/, '').trim();
+      steps = JSON.parse(cleaned);
+    } catch { steps = []; }
   }
 
   return {
