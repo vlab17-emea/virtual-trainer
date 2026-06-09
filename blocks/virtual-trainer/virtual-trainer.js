@@ -476,10 +476,10 @@ export default function decorate(block) {
 
     /* Derive markdown filename — uses mdFile if set, otherwise slug + '-v2' */
     const mdFile = def.mdFile || `${def.slug}-v2`;
-    const mdUrl = `https://main--virtual-trainer--vlab17-emea.aem.live/activity-guides/${mdFile}.md`;
+    const mdUrl = `https://raw.githubusercontent.com/vlab17-emea/virtual-trainer/main/activity-guides/${mdFile}.md`;
 
     const res = await fetch(mdUrl);
-    if (!res.ok) throw new Error(`Guide not found (${res.status}) — check /activity-guides/${mdFile}.md exists in EDS`);
+    if (!res.ok) throw new Error(`Guide not found (${res.status}) — check activity-guides/${mdFile}.md exists in the GitHub repo`);
     const raw = await res.text();
 
     /* Strip YAML frontmatter block */
