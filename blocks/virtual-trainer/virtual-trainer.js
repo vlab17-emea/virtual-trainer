@@ -82,7 +82,7 @@ BEHAVIOUR:
 - If the answer is not clearly supported by the course materials, say so honestly in one sentence. Do not guess.`,
       },
       source_options: ['COLLECTION'],
-      inference_mode: 'FAST_REASONING',
+      inference_mode: 'STANDARD',
       file_generation: 'DISABLED',
       time_zone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
       enable_figures: false,
@@ -376,8 +376,8 @@ export default function decorate(block) {
   };
 
   function detectActivity(text) {
-    const m = text.match(/Activity\s+(2\.(?:10|\d))/i);
-    return m ? m[1] : null;
+    const m = text.match(/[Aa]ctivity\s+(2\.(?:10|\d))|2\.(10|\d)\s+(?:is|covers|walks|guide)/);
+    return m ? (m[1] || `2.${m[2]}`) : null;
   }
 
   function showActivityImages(activityId, responseText) {
@@ -706,13 +706,17 @@ export default function decorate(block) {
 
   /* ── Step-by-step mode ── */
   function parseSteps(text) {
-    /* Find where numbered steps begin — skip any intro paragraphs */
+    /* Find where numbered steps begin — skip intro paragraphs */
     const firstStep = text.search(/\n\d+\.\s/);
     const stepsText = firstStep > -1 ? text.slice(firstStep) : text;
-    /* Split on each numbered step */
-    return stepsText.split(/(?=\n\d+\.\s)/g)
+    const numbered = stepsText.split(/(?=\n\d+\.\s)/g)
       .map((s) => s.trim())
       .filter((s) => /^\d+\./.test(s));
+    if (numbered.length > 1) return numbered;
+    /* Fall back to paragraph splitting if no numbered steps found */
+    return text.split(/\n{2,}/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 40);
   }
 
   function showFullActivity(text, activityId) {
@@ -723,6 +727,11 @@ export default function decorate(block) {
   function startStepByStep(text, activityId, onMoreDetail) {
     const def = activityId ? ACTIVITY_IMAGES[activityId] : null;
     const steps = parseSteps(text);
+    /* If we couldn't parse meaningful steps, show full response instead */
+    if (steps.length < 2) {
+      showFullActivity(text, activityId);
+      return;
+    }
     let current = 0;
 
     function showStep(index) {
