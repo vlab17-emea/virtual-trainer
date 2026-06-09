@@ -442,7 +442,7 @@ export default function decorate(block) {
   const ACTIVITY_IMAGES = {
     2.2: { slug: 'activity-2-2-roles-permissions', count: 9 },
     2.3: { slug: 'activity-2-3-import-package', count: 11 },
-    2.4: { slug: 'activity-2-4-attribute-schema', count: 23 },
+    2.4: { slug: 'activity-2-4-attribute-schema', count: 23, mdFile: 'activity-2-4-attribute-schema-v2' },
     2.5: { slug: 'activity-2-5-event-schema', count: 10 },
     2.6: { slug: 'activity-2-6-data-usage-policy', count: 7 },
     2.7: { slug: 'activity-2-7-governance-labels', count: 6 },
@@ -453,6 +453,175 @@ export default function decorate(block) {
   function detectActivity(text) {
     const m = text.match(/[Aa]ctivity\s+(2\.(?:10|\d))|2\.(10|\d)\s+(?:is|covers|walks|guide)/);
     return m ? (m[1] || `2.${m[2]}`) : null;
+  }
+
+  /* ── Activity guide inline renderer ──────────────────────────────────────
+     Fetches the raw markdown from EDS, parses it locally, renders {{img:}}
+     tokens using the same image CDN as step cards. No Yukon call required. */
+
+  function mdInline(raw) {
+    /* Chain replacements to avoid param reassign */
+    return raw
+      .replace(/\{\{img:([^}]+)\}\}/g, (_, slug) => {
+        const url = `${BASE_IMG}/${slug}.png`;
+        return `<img src="${url}" alt="${slug}" class="vt-guide-img" loading="lazy">`;
+      })
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/`([^`]+)`/g, '<code>$1</code>');
+  }
+
+  async function renderActivityGuideInline(activityId) {
+    const def = ACTIVITY_IMAGES[activityId];
+    if (!def) throw new Error(`No guide mapping for activity ${activityId}`);
+
+    /* Derive markdown filename — uses mdFile if set, otherwise slug + '-v2' */
+    const mdFile = def.mdFile || `${def.slug}-v2`;
+    const mdUrl = `https://main--virtual-trainer--vlab17-emea.aem.live/activity-guides/${mdFile}.md`;
+
+    const res = await fetch(mdUrl);
+    if (!res.ok) throw new Error(`Guide not found (${res.status}) — check /activity-guides/${mdFile}.md exists in EDS`);
+    const raw = await res.text();
+
+    /* Strip YAML frontmatter block */
+    const md = raw.replace(/^---[\s\S]*?---\s*\n/, '');
+
+    /* Parse markdown to HTML */
+    const lines = md.split('\n');
+    const parts = [];
+    let listOpen = false;
+    let tableOpen = false;
+    let tableHasHead = false;
+
+    const flushTable = () => {
+      if (tableOpen) { parts.push('</tbody></table>'); tableOpen = false; tableHasHead = false; }
+    };
+    const flushList = () => {
+      if (listOpen) { parts.push('</ul>'); listOpen = false; }
+    };
+
+    lines.forEach((line) => {
+      /* Table rows — handle as a self-contained branch and return early */
+      if (line.startsWith('|')) {
+        const isSep = /^\|[-\s:|]+\|/.test(line);
+        if (isSep) { tableHasHead = true; return; }
+        if (!tableOpen) {
+          flushList();
+          parts.push('<table class="vt-guide-table">');
+          parts.push('<thead>');
+          tableOpen = true;
+          tableHasHead = false;
+        }
+        if (!tableHasHead) {
+          const cells = line.split('|').slice(1, -1);
+          parts.push(`<tr>${cells.map((c) => `<th>${mdInline(c.trim())}</th>`).join('')}</tr>`);
+        } else {
+          const lastHeadIdx = parts.lastIndexOf('<thead>');
+          if (lastHeadIdx > -1 && !parts.includes('<tbody>')) {
+            parts.push('</thead><tbody>');
+          }
+          const cells = line.split('|').slice(1, -1);
+          parts.push(`<tr>${cells.map((c) => `<td>${mdInline(c.trim())}</td>`).join('')}</tr>`);
+        }
+        return;
+      }
+
+      /* Non-table line — flush any open table first */
+      if (tableOpen) flushTable();
+
+      if (line.startsWith('### ')) {
+        flushList();
+        parts.push(`<h3 class="vt-guide-h3">${mdInline(line.slice(4))}</h3>`);
+      } else if (line.startsWith('## ')) {
+        flushList();
+        parts.push(`<h2 class="vt-guide-h2">${mdInline(line.slice(3))}</h2>`);
+      } else if (line.startsWith('# ')) {
+        flushList();
+        parts.push(`<h1 class="vt-guide-h1">${mdInline(line.slice(2))}</h1>`);
+      } else if (/^---+\s*$/.test(line)) {
+        flushList();
+        parts.push('<hr class="vt-guide-hr">');
+      } else if (line.startsWith('- ') || line.startsWith('* ')) {
+        if (!listOpen) { parts.push('<ul class="vt-guide-ul">'); listOpen = true; }
+        parts.push(`<li>${mdInline(line.slice(2))}</li>`);
+      } else if (line.trim() === '') {
+        flushList();
+      } else {
+        flushList();
+        parts.push(`<p class="vt-guide-p">${mdInline(line)}</p>`);
+      }
+    });
+    flushList();
+    flushTable();
+
+    /* Inject styles if not already present */
+    if (!document.getElementById('vt-guide-styles')) {
+      const styleEl = document.createElement('style');
+      styleEl.id = 'vt-guide-styles';
+      styleEl.textContent = [
+        '.vt-guide-overlay{background:var(--color-white,#fff);border:1px solid #e5e7eb;border-radius:12px;margin:12px 0;overflow:hidden;width:100%}',
+        '.vt-guide-toolbar{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:#f8f9fa;border-bottom:1px solid #e5e7eb;position:sticky;top:0;z-index:2}',
+        '.vt-guide-title{font-weight:600;font-size:0.95rem;color:#1a1a1a}',
+        '.vt-guide-close{background:none;border:none;cursor:pointer;font-size:1.1rem;color:#666;padding:4px 8px;border-radius:4px;line-height:1}',
+        '.vt-guide-close:hover{background:#e5e7eb}',
+        '.vt-guide-body{padding:20px 24px;max-height:70vh;overflow-y:auto;font-size:0.9rem;line-height:1.6;color:#1a1a1a}',
+        '.vt-guide-h1{font-size:1.25rem;font-weight:700;margin:0 0 16px;color:#1a1a1a}',
+        '.vt-guide-h2{font-size:1.05rem;font-weight:700;margin:24px 0 8px;padding:8px 12px;background:#f0f4ff;border-left:3px solid #1473e6;border-radius:0 4px 4px 0;color:#1a1a1a}',
+        '.vt-guide-h3{font-size:0.95rem;font-weight:600;margin:16px 0 6px;color:#444}',
+        '.vt-guide-p{margin:4px 0 8px}',
+        '.vt-guide-hr{border:none;border-top:1px solid #e5e7eb;margin:16px 0}',
+        '.vt-guide-ul{margin:4px 0 12px 20px;padding:0}',
+        '.vt-guide-ul li{margin:3px 0}',
+        '.vt-guide-img{max-width:100%;border:1px solid #e5e7eb;border-radius:6px;margin:10px 0;display:block;cursor:zoom-in}',
+        '.vt-guide-table{border-collapse:collapse;width:100%;margin:10px 0;font-size:0.85rem}',
+        '.vt-guide-table th,.vt-guide-table td{border:1px solid #e5e7eb;padding:6px 10px;text-align:left}',
+        '.vt-guide-table th{background:#f0f4ff;font-weight:600}',
+        '.vt-guide-table tr:nth-child(even) td{background:#fafafa}',
+      ].join('\n');
+      document.head.appendChild(styleEl);
+    }
+
+    /* Build overlay card */
+    const overlay = document.createElement('div');
+    overlay.className = 'vt-guide-overlay';
+
+    const toolbar = document.createElement('div');
+    toolbar.className = 'vt-guide-toolbar';
+    const titleEl = document.createElement('span');
+    titleEl.className = 'vt-guide-title';
+    titleEl.textContent = `Activity ${activityId} — Full Exercise Guide`;
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'vt-guide-close';
+    closeBtn.textContent = '✕';
+    closeBtn.setAttribute('aria-label', 'Close guide');
+    closeBtn.addEventListener('click', () => overlay.remove());
+    toolbar.appendChild(titleEl);
+    toolbar.appendChild(closeBtn);
+
+    const body = document.createElement('div');
+    body.className = 'vt-guide-body';
+    body.innerHTML = parts.join('');
+
+    /* Wire up zoom on guide images (reuse existing lightbox if present) */
+    body.querySelectorAll('.vt-guide-img').forEach((img) => {
+      img.addEventListener('click', () => {
+        const lb = document.querySelector('.vt-lightbox') || (() => {
+          const el = document.createElement('div');
+          el.className = 'vt-lightbox';
+          el.innerHTML = '<img class="vt-lightbox-img"><button class="vt-lightbox-close">✕</button>';
+          el.querySelector('.vt-lightbox-close').addEventListener('click', () => el.remove());
+          el.addEventListener('click', (e) => { if (e.target === el) el.remove(); });
+          document.body.appendChild(el);
+          return el;
+        })();
+        lb.querySelector('.vt-lightbox-img').src = img.src;
+        lb.style.display = 'flex';
+      });
+    });
+
+    overlay.appendChild(toolbar);
+    overlay.appendChild(body);
+    messagesEl.appendChild(overlay);
+    overlay.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   /* Broader detection for user queries — catches "activity 2.4", "2.4", "help with 2.4" */
@@ -989,7 +1158,7 @@ export default function decorate(block) {
 
     const allBtn = document.createElement('button');
     allBtn.className = 'vt-notify-btn';
-    allBtn.textContent = 'Show everything';
+    allBtn.textContent = 'Open exercise guide';
 
     btns.appendChild(stepBtn);
     btns.appendChild(allBtn);
@@ -1000,25 +1169,13 @@ export default function decorate(block) {
 
     allBtn.addEventListener('click', async () => {
       card.remove();
-      if (yukonSummary) {
-        showFullActivity(yukonSummary, activityId);
-      } else {
-        /* Summary not pre-fetched (mode card shown before Yukon call) — fetch now */
-        showTyping();
-        try {
-          const summaryText = await callYukon(
-            [{ role: 'user', content: `Give me a complete overview of Activity ${activityId} — what it involves, the tasks in order, and the expected outcome.` }],
-            collIds,
-            yukonH,
-            imsT,
-            {},
-          );
-          hideTyping();
-          showFullActivity(summaryText, activityId);
-        } catch {
-          hideTyping();
-          showFullActivity(`Activity ${activityId} — ask me any specific questions about this activity.`, activityId);
-        }
+      showTyping();
+      try {
+        await renderActivityGuideInline(activityId);
+      } catch (e) {
+        appendMessage({ role: 'assistant', content: `⚠️ Could not load exercise guide: ${e.message}` });
+      } finally {
+        hideTyping();
       }
     });
 
