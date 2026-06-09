@@ -1226,6 +1226,15 @@ export default function decorate(block) {
       }
     }
 
+    /* Ensure profile is resolved before every Yukon call — getProfile() returns
+       from the IMS library's internal cache after auth, no network round-trip. */
+    if (!state.userName && window.adobeIMS?.getProfile) {
+      try {
+        const p = await window.adobeIMS.getProfile();
+        if (p) applyImsProfile(p);
+      } catch { /* silent — name will be missing from context but call still works */ }
+    }
+
     try {
       const text = await callYukon(
         state.messages,
