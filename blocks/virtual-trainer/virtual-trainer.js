@@ -67,8 +67,8 @@ ${userInfo.email ? `- Student email: ${userInfo.email}` : ''}
 - When asked about their team, look up their email or name in the cohort team list document.
 
 CURRENT CONTEXT:
-- It is Week 2 of 6. Week 1 is complete.
-- The Monday 1 June session has been completed. The next session is Thursday 4 June at 15:00 CEST.
+- Today is Wednesday 11 June 2026. It is Week 2 of 6. Week 1 is complete.
+- Week 2 sessions (Mon 2 June and Thu 5 June) are complete. The next session is Friday 12 June at 15:00 CEST.
 - Week 2 topics: sandbox management, XDM schema design (attributes and events), data governance, connecting schemas to datasets.
 
 BEHAVIOUR:
@@ -455,6 +455,46 @@ export default function decorate(block) {
     return m ? (m[1] || `2.${m[2]}`) : null;
   }
 
+  /* ── Helper functions ── */
+  /* ── Lightbox ── */
+  const lightbox = document.createElement('div');
+  lightbox.className = 'vt-lightbox';
+  const lightboxImg = document.createElement('img');
+  lightboxImg.className = 'vt-lightbox-img';
+  const lightboxClose = document.createElement('button');
+  lightboxClose.className = 'vt-lightbox-close';
+  lightboxClose.textContent = '✕';
+  lightboxClose.setAttribute('aria-label', 'Close');
+  lightbox.appendChild(lightboxImg);
+  lightbox.appendChild(lightboxClose);
+  document.body.appendChild(lightbox);
+
+  function openLightbox(src) {
+    lightboxImg.src = src;
+    lightbox.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeLightbox() {
+    lightbox.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  lightboxClose.addEventListener('click', closeLightbox);
+  lightbox.addEventListener('click', (e) => {
+    if (e.target === lightbox) closeLightbox();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeLightbox();
+  });
+
+  /* Delegate click on any activity image */
+  document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('vt-activity-img')) {
+      openLightbox(e.target.src);
+    }
+  });
+
   /* ── Activity guide inline renderer ──────────────────────────────────────
      Fetches the raw markdown from EDS, parses it locally, renders {{img:}}
      tokens using the same image CDN as step cards. No Yukon call required. */
@@ -606,21 +646,9 @@ export default function decorate(block) {
     body.className = 'vt-guide-body';
     body.innerHTML = parts.join('');
 
-    /* Wire up zoom on guide images (reuse existing lightbox if present) */
+    /* Wire up zoom on guide images — reuse the shared openLightbox function */
     body.querySelectorAll('.vt-guide-img').forEach((img) => {
-      img.addEventListener('click', () => {
-        const lb = document.querySelector('.vt-lightbox') || (() => {
-          const el = document.createElement('div');
-          el.className = 'vt-lightbox';
-          el.innerHTML = '<img class="vt-lightbox-img"><button class="vt-lightbox-close">✕</button>';
-          el.querySelector('.vt-lightbox-close').addEventListener('click', () => el.remove());
-          el.addEventListener('click', (e) => { if (e.target === el) el.remove(); });
-          document.body.appendChild(el);
-          return el;
-        })();
-        lb.querySelector('.vt-lightbox-img').src = img.src;
-        lb.style.display = 'flex';
-      });
+      img.addEventListener('click', () => openLightbox(img.src));
     });
 
     overlay.appendChild(toolbar);
@@ -676,46 +704,6 @@ export default function decorate(block) {
     });
   }
 
-  /* ── Helper functions ── */
-  /* ── Lightbox ── */
-  const lightbox = document.createElement('div');
-  lightbox.className = 'vt-lightbox';
-  const lightboxImg = document.createElement('img');
-  lightboxImg.className = 'vt-lightbox-img';
-  const lightboxClose = document.createElement('button');
-  lightboxClose.className = 'vt-lightbox-close';
-  lightboxClose.textContent = '✕';
-  lightboxClose.setAttribute('aria-label', 'Close');
-  lightbox.appendChild(lightboxImg);
-  lightbox.appendChild(lightboxClose);
-  document.body.appendChild(lightbox);
-
-  function openLightbox(src) {
-    lightboxImg.src = src;
-    lightbox.classList.add('open');
-    document.body.style.overflow = 'hidden';
-  }
-
-  function closeLightbox() {
-    lightbox.classList.remove('open');
-    document.body.style.overflow = '';
-  }
-
-  lightboxClose.addEventListener('click', closeLightbox);
-  lightbox.addEventListener('click', (e) => {
-    if (e.target === lightbox) closeLightbox();
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeLightbox();
-  });
-
-  /* Delegate click on any activity image */
-  document.addEventListener('click', (e) => {
-    if (e.target.classList.contains('vt-activity-img')) {
-      openLightbox(e.target.src);
-    }
-  });
-
   function appendMessage(msg) {
     const row = document.createElement('div');
     row.className = `vt-message ${msg.role}`;
@@ -770,36 +758,42 @@ export default function decorate(block) {
     }
   });
 
-  document.addEventListener('ims:profile', (e) => {
-    const { profile } = e.detail || {};
-    if (profile && userAvatarEl) {
-      const fullName = profile.displayName
-        || `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
-        || '';
-      const firstName = profile.first_name || fullName.split(' ')[0] || '';
-      const email = profile.email || '';
+  /* Helper — applies an IMS profile object to state and UI.
+     Called from both the ims:profile event and the token poll fallback. */
+  function applyImsProfile(profile) {
+    if (!profile || state.userName) return; /* already set */
+    const fullName = profile.displayName
+      || `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
+      || '';
+    const firstName = profile.first_name || fullName.split(' ')[0] || '';
+    const email = profile.email || '';
+
+    state.userName = fullName;
+    state.userFirstName = firstName;
+    state.userEmail = email;
+
+    /* Update avatar initials if the element exists yet */
+    if (userAvatarEl) {
       const initials = fullName.split(' ').filter(Boolean)
         .map((n) => n[0]).join('')
         .slice(0, 2)
         .toUpperCase();
       if (initials) userAvatarEl.textContent = initials;
+    }
 
-      /* Store in state for use in Yukon custom_instructions */
-      state.userName = fullName;
-      state.userFirstName = firstName;
-      state.userEmail = email;
-
-      /* Personalise the welcome message if it hasn't been replaced yet */
-      if (state.messages.length === 1 && firstName) {
-        state.messages[0].content = `Hi ${firstName}! I'm your **Cohort Companion** for *Configure and Manage Adobe Experience Platform*.\n\nI can help you catch up on sessions you missed, answer AEP questions, and guide you through this week's activities.\n\nWhat do you need help with today?`;
-        /* Update the rendered bubble */
-        const firstBubble = messagesEl?.querySelector('.vt-bubble.assistant');
-        if (firstBubble) {
-          firstBubble.innerHTML = '';
-          firstBubble.appendChild(renderMarkdown(state.messages[0].content));
-        }
+    /* Personalise the welcome message if it hasn't been replaced yet */
+    if (state.messages.length === 1 && firstName) {
+      state.messages[0].content = `Hi ${firstName}! I'm your **Cohort Companion** for *Configure and Manage Adobe Experience Platform*.\n\nI can help you catch up on sessions you missed, answer AEP questions, and guide you through this week's activities.\n\nWhat do you need help with today?`;
+      const firstBubble = messagesEl?.querySelector('.vt-bubble.assistant');
+      if (firstBubble) {
+        firstBubble.innerHTML = '';
+        firstBubble.appendChild(renderMarkdown(state.messages[0].content));
       }
     }
+  }
+
+  document.addEventListener('ims:profile', (e) => {
+    applyImsProfile(e.detail?.profile);
   });
 
   document.addEventListener('ims:signedout', () => {
@@ -1355,7 +1349,7 @@ export default function decorate(block) {
   courseWeek.textContent = 'Week 2 of 6';
   const courseMeeting = document.createElement('div');
   courseMeeting.className = 'vt-course-meeting';
-  courseMeeting.innerHTML = '📅 Next meeting: <strong>Thu 4 June, 15:00 CEST</strong>';
+  courseMeeting.innerHTML = '📅 Next meeting: <strong>Fri 12 June, 15:00 CEST</strong>';
   courseInfo.appendChild(courseWeek);
   courseInfo.appendChild(courseMeeting);
 
@@ -1578,6 +1572,12 @@ export default function decorate(block) {
       textarea.disabled = false;
       textarea.placeholder = "Ask anything, or say 'done' to move to the next step…";
       updateSendBtn();
+      /* Grab profile from IMS cache — no network call after first auth */
+      if (!state.userName && window.adobeIMS.getProfile) {
+        window.adobeIMS.getProfile()
+          .then((p) => applyImsProfile(p))
+          .catch(() => {});
+      }
     }
   }, 200);
 
