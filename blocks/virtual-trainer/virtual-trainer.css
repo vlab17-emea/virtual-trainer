@@ -1111,3 +1111,35 @@ body:has(.virtual-trainer) .virtual-trainer-wrapper {
   line-height: var(--s2-line-height-loose);
   background: white;
 }
+
+/* ── Step card extras ── */
+.vt-step-expected {
+  margin-top: var(--s2-spacing-100);
+  padding: var(--s2-spacing-75) var(--s2-spacing-150);
+  background: #f0faf0;
+  border-left: 3px solid #2d9e5f;
+  border-radius: 0 var(--s2-radius-sm) var(--s2-radius-sm) 0;
+  font-size: var(--s2-font-size-100);
+  color: var(--s2-text-secondary);
+}
+
+.vt-step-mistake {
+  margin-top: var(--s2-spacing-75);
+  padding: var(--s2-spacing-75) var(--s2-spacing-150);
+  background: #fff8ed;
+  border-left: 3px solid #e68a00;
+  border-radius: 0 var(--s2-radius-sm) var(--s2-radius-sm) 0;
+  font-size: var(--s2-font-size-100);
+  color: var(--s2-text-secondary);
+}
+
+.vt-step-hint {
+  margin: var(--s2-spacing-100) 0;
+  padding: var(--s2-spacing-75) var(--s2-spacing-150);
+  background: #f0f4ff;
+  border-left: 3px solid var(--s2-accent);
+  border-radius: 0 var(--s2-radius-sm) var(--s2-radius-sm) 0;
+  font-size: var(--s2-font-size-100);
+  color: var(--s2-text-secondary);
+  animation: vt-fade-up 0.15s ease;
+}

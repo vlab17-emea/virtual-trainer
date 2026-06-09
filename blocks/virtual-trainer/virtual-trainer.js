@@ -115,7 +115,85 @@ BEHAVIOUR:
   return raw.replace(/\s*\[\^?\d+\]/g, '').replace(/\s*\^\d+/g, '');
 }
 
-/* ── Course structure ────────────────────────────────────────────────────── */
+/* ── Yukon Extract API — fetches structured steps from activity document ── */
+async function callYukonExtract(activityId, collectionIds, yukonHost, imsToken) {
+  if (!imsToken) throw new Error('No IMS token available.');
+
+  const collections = Array.isArray(collectionIds) ? collectionIds : [collectionIds];
+  const endpoint = `${yukonHost}/api/v2/inference/extract`;
+
+  const schema = [
+    {
+      property_name: 'activity_title',
+      type: 'string',
+      description: 'The full title of the activity',
+      prompt: 'Extract the activity title exactly as written.',
+    },
+    {
+      property_name: 'outcome',
+      type: 'string',
+      description: 'The intended outcome of the activity',
+      prompt: 'Extract the outcome field from the document frontmatter exactly as written.',
+    },
+    {
+      property_name: 'steps',
+      type: 'array',
+      description: 'All numbered steps in the activity across all tasks',
+      prompt: `Extract every numbered step from the document. For each step return a JSON object with these fields:
+- step_number (integer)
+- task (string): the brief one-sentence task description after "Task:" exactly as written
+- detail (string): the full instruction text after "Detail:" exactly as written
+- hint1 (string): the text after "Hint 1:" exactly as written, or empty string if none
+- hint2 (string): the text after "Hint 2:" exactly as written, or empty string if none  
+- expected_result (string): the text after "Expected result:" exactly as written
+- common_mistake (string): the text after "Common mistake:" exactly as written, or empty string if none
+- image_token (string): the {{img:...}} token on the line after the step content, exactly as written, or empty string if none
+Do not paraphrase. Return the text exactly as it appears in the document.`,
+    },
+  ];
+
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${imsToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      request_id: crypto.randomUUID(),
+      collections,
+      inputs: `Extract all steps from the structured exercise guide for Activity ${activityId}. Document filename: activity-${activityId.replace('.', '-')}-attribute-schema-v2`,
+      extraction_schema: schema,
+      source_options: ['COLLECTION'],
+      inference_mode: 'STANDARD',
+      store: false,
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text().catch(() => res.statusText);
+    throw new Error(`Yukon extract error ${res.status}: ${errText}`);
+  }
+
+  const data = await res.json();
+
+  /* Extract API returns array of { property_name, value, confidence, explanation } */
+  const results = data?.results || data?.extractions || data?.data || [];
+  const extracted = {};
+  results.forEach((r) => { extracted[r.property_name] = r.value; });
+
+  /* Parse steps — value may be JSON string or already an array */
+  let steps = extracted.steps || [];
+  if (typeof steps === 'string') {
+    try { steps = JSON.parse(steps); } catch { steps = []; }
+  }
+
+  return {
+    title: extracted.activity_title || `Activity ${activityId}`,
+    outcome: extracted.outcome || '',
+    steps: Array.isArray(steps) ? steps : [],
+  };
+}
+
 const MODULES = [
   {
     id: 'w1',
@@ -724,22 +802,36 @@ export default function decorate(block) {
     if (activityId && !text.includes('{{img:')) showActivityImages(activityId, text);
   }
 
-  function startStepByStep(text, activityId, onMoreDetail) {
+  function startStepByStep(extractedData, activityId, onMoreDetail) {
     const def = activityId ? ACTIVITY_IMAGES[activityId] : null;
-    const steps = parseSteps(text);
-    /* If we couldn't parse meaningful steps, show full response instead */
-    if (steps.length < 2) {
-      showFullActivity(text, activityId);
-      return;
+
+    let steps;
+    if (extractedData && Array.isArray(extractedData.steps) && extractedData.steps.length > 1) {
+      steps = extractedData.steps;
+    } else {
+      const text = typeof extractedData === 'string' ? extractedData : (extractedData?.rawText || '');
+      const parsed = parseSteps(text);
+      if (parsed.length < 2) { showFullActivity(text, activityId); return; }
+      steps = parsed.map((s, i) => ({
+        step_number: i + 1,
+        task: s,
+        detail: '',
+        hint1: '',
+        hint2: '',
+        expected_result: '',
+        common_mistake: '',
+        image_token: '',
+      }));
     }
+
     let current = 0;
 
     function showStep(index) {
       const prev = messagesEl.querySelector('.vt-step-card');
       if (prev) prev.remove();
-
       const step = steps[index];
       if (!step) return;
+      const isStructured = typeof step === 'object' && step.task;
 
       const card = document.createElement('div');
       card.className = 'vt-step-card';
@@ -750,20 +842,85 @@ export default function decorate(block) {
 
       const content = document.createElement('div');
       content.className = 'vt-step-content';
-      content.appendChild(renderMarkdown(step));
 
-      if (def && index < def.count) {
-        const num = String(index + 1).padStart(2, '0');
-        const img = document.createElement('img');
-        img.src = `${BASE_IMG}/${def.slug}-${num}.png`;
-        img.alt = `Step ${index + 1}`;
-        img.className = 'vt-activity-img';
-        img.loading = 'lazy';
-        content.appendChild(img);
+      if (isStructured) {
+        const taskEl = document.createElement('p');
+        taskEl.appendChild(renderMarkdown(step.task || ''));
+        content.appendChild(taskEl);
+
+        if (step.detail) {
+          const det = document.createElement('details');
+          det.className = 'vt-detail-block';
+          const sum = document.createElement('summary');
+          sum.textContent = 'Full instructions';
+          const body = document.createElement('div');
+          body.className = 'vt-detail-body';
+          body.appendChild(renderMarkdown(step.detail));
+          det.appendChild(sum);
+          det.appendChild(body);
+          content.appendChild(det);
+        }
+
+        if (step.expected_result) {
+          const exp = document.createElement('div');
+          exp.className = 'vt-step-expected';
+          exp.appendChild(renderMarkdown(`✓ **Expected:** ${step.expected_result}`));
+          content.appendChild(exp);
+        }
+
+        if (step.common_mistake) {
+          const mis = document.createElement('div');
+          mis.className = 'vt-step-mistake';
+          mis.appendChild(renderMarkdown(`⚠️ **Watch out:** ${step.common_mistake}`));
+          content.appendChild(mis);
+        }
+
+        if (step.image_token) {
+          content.appendChild(renderMarkdown(step.image_token));
+        } else if (def && index < def.count) {
+          const num = String(index + 1).padStart(2, '0');
+          const img = document.createElement('img');
+          img.src = `${BASE_IMG}/${def.slug}-${num}.png`;
+          img.alt = `Step ${index + 1}`;
+          img.className = 'vt-activity-img';
+          img.loading = 'lazy';
+          content.appendChild(img);
+        }
+      } else {
+        content.appendChild(renderMarkdown(typeof step === 'string' ? step : step.task || ''));
+        if (def && index < def.count) {
+          const num = String(index + 1).padStart(2, '0');
+          const img = document.createElement('img');
+          img.src = `${BASE_IMG}/${def.slug}-${num}.png`;
+          img.alt = `Step ${index + 1}`;
+          img.className = 'vt-activity-img';
+          img.loading = 'lazy';
+          content.appendChild(img);
+        }
       }
 
       const btnRow = document.createElement('div');
       btnRow.className = 'vt-step-btns';
+
+      if (isStructured && (step.hint1 || step.hint2)) {
+        let hintLevel = 0;
+        const hints = [step.hint1, step.hint2].filter(Boolean);
+        const hintBtn = document.createElement('button');
+        hintBtn.className = 'vt-notify-btn';
+        hintBtn.textContent = 'Give me a hint';
+        hintBtn.addEventListener('click', () => {
+          const hint = hints[hintLevel];
+          if (hint) {
+            const hintEl = document.createElement('div');
+            hintEl.className = 'vt-step-hint';
+            hintEl.appendChild(renderMarkdown(`💡 ${hint}`));
+            btnRow.parentNode.insertBefore(hintEl, btnRow);
+          }
+          hintLevel += 1;
+          if (hintLevel >= hints.length) hintBtn.disabled = true;
+        });
+        btnRow.appendChild(hintBtn);
+      }
 
       const moreBtn = document.createElement('button');
       moreBtn.className = 'vt-notify-btn';
@@ -796,15 +953,20 @@ export default function decorate(block) {
       });
 
       moreBtn.addEventListener('click', () => {
-        const query = `Give me more detail on this step of the activity: ${step.slice(0, 120)}`;
-        onMoreDetail(query, 'Tell me more about this step');
+        const stepDesc = (() => {
+          if (isStructured) return step.task || '';
+          if (typeof step === 'string') return step;
+          return '';
+        })();
+        const query = `Give me more detail on this step of Activity ${activityId}: ${stepDesc.slice(0, 120)}`;
+        setTimeout(() => onMoreDetail(query, 'Tell me more about this step'), 0);
       });
     }
 
     showStep(current);
   }
 
-  function showStepModeCard(fullText, activityId, onMoreDetail) {
+  function showStepModeCard(yukonSummary, activityId, collIds, yukonH, imsT, onMoreDetail) {
     const card = document.createElement('div');
     card.className = 'vt-step-mode-card';
 
@@ -832,12 +994,25 @@ export default function decorate(block) {
 
     allBtn.addEventListener('click', () => {
       card.remove();
-      showFullActivity(fullText, activityId);
+      showFullActivity(yukonSummary, activityId);
     });
 
-    stepBtn.addEventListener('click', () => {
+    stepBtn.addEventListener('click', async () => {
       card.remove();
-      startStepByStep(fullText, activityId, onMoreDetail);
+      showTyping();
+      try {
+        const extracted = await callYukonExtract(activityId, collIds, yukonH, imsT);
+        hideTyping();
+        if (extracted.steps && extracted.steps.length > 1) {
+          startStepByStep(extracted, activityId, onMoreDetail);
+        } else {
+          /* Extract API returned nothing useful — fall back to Q&A text */
+          startStepByStep({ rawText: yukonSummary }, activityId, onMoreDetail);
+        }
+      } catch {
+        hideTyping();
+        startStepByStep({ rawText: yukonSummary }, activityId, onMoreDetail);
+      }
     });
   }
 
@@ -863,7 +1038,7 @@ export default function decorate(block) {
       const activityId = detectActivity(text);
       const isTellMeMore = actualContent.startsWith('Give me more detail on this step');
       if (activityId && !isTellMeMore) {
-        showStepModeCard(text, activityId, sendChat);
+        showStepModeCard(text, activityId, collectionIds, yukonHost, state.imsToken, sendChat);
       } else {
         appendMessage({ role: 'assistant', content: text });
         if (isKnownIssueResponse(text)) showNotificationCard();
