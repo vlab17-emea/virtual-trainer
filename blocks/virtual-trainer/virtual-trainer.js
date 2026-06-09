@@ -762,7 +762,9 @@ export default function decorate(block) {
      Called from both the ims:profile event and the token poll fallback. */
   function applyImsProfile(profile) {
     if (!profile || state.userName) return; /* already set */
+    /* IMS returns 'name' (full name) and 'first_name' — not 'displayName' or 'last_name' */
     const fullName = profile.displayName
+      || profile.name
       || `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
       || '';
     const firstName = profile.first_name || fullName.split(' ')[0] || '';
