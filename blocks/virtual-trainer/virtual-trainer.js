@@ -135,10 +135,11 @@ async function callYukonExtract(activityId, collectionIds, yukonHost, imsToken) 
     ? docs.find((d) => d.document_name && d.document_name.includes(docName)) : null;
   if (!doc?.document_id) throw new Error(`Document not found for activity ${activityId}`);
 
-  /* ── Step 2: Use targeted Q&A with document_ids to get structured steps ── */
-  /* The Extract API returns 500 on markdown docs with large array prompts.
-     Q&A with document_ids scoped to one file is more reliable.            */
-  const qaPrompt = 'Return the complete structured content of this activity guide as a single JSON object. '
+  /* ── Step 2: Scoped Q&A — reference document by name in the prompt ──────
+     document_ids is NOT a valid field on the v2 Q&A endpoint (returns 422).
+     Instead we name the document explicitly so Yukon retrieves it by name.  */
+  const qaPrompt = `Using only the document named "${doc.document_name}", return its complete structured content as a single JSON object. `
+    + '(document name is provided for scoping — treat it as the sole source) '
     + 'The JSON must have these keys: '
     + 'title (string — the activity title), '
     + 'outcome (string — the outcome from the frontmatter), '
@@ -156,7 +157,6 @@ async function callYukonExtract(activityId, collectionIds, yukonHost, imsToken) 
     body: JSON.stringify({
       request_id: crypto.randomUUID(),
       collections: [activityCollection],
-      document_ids: [doc.document_id],
       inputs: qaPrompt,
       response_format: {
         format: 'AUTO',
