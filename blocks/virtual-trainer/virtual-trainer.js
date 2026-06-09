@@ -455,6 +455,15 @@ export default function decorate(block) {
     return m ? (m[1] || `2.${m[2]}`) : null;
   }
 
+  /* Broader detection for user queries — catches "activity 2.4", "2.4", "help with 2.4" */
+  function detectActivityInQuery(text) {
+    const explicit = text.match(/[Aa]ctivity\s*(2\.(?:10|[2-9]))/);
+    if (explicit) return explicit[1];
+    const bare = text.match(/\b(2\.(?:10|[2-9]))\b/);
+    if (bare) return bare[1];
+    return null;
+  }
+
   function showActivityImages(activityId, responseText) {
     const def = ACTIVITY_IMAGES[activityId];
     if (!def) return;
@@ -989,9 +998,28 @@ export default function decorate(block) {
     messagesEl.appendChild(card);
     messagesEl.scrollTop = messagesEl.scrollHeight;
 
-    allBtn.addEventListener('click', () => {
+    allBtn.addEventListener('click', async () => {
       card.remove();
-      showFullActivity(yukonSummary, activityId);
+      if (yukonSummary) {
+        showFullActivity(yukonSummary, activityId);
+      } else {
+        /* Summary not pre-fetched (mode card shown before Yukon call) — fetch now */
+        showTyping();
+        try {
+          const summaryText = await callYukon(
+            [{ role: 'user', content: `Give me a complete overview of Activity ${activityId} — what it involves, the tasks in order, and the expected outcome.` }],
+            collIds,
+            yukonH,
+            imsT,
+            {},
+          );
+          hideTyping();
+          showFullActivity(summaryText, activityId);
+        } catch {
+          hideTyping();
+          showFullActivity(`Activity ${activityId} — ask me any specific questions about this activity.`, activityId);
+        }
+      }
     });
 
     stepBtn.addEventListener('click', async () => {
@@ -1022,6 +1050,26 @@ export default function decorate(block) {
     state.loading = true;
     showTyping();
     updateSendBtn();
+
+    const isTellMeMore = actualContent.startsWith('Give me more detail on this step');
+
+    /* ── Detect activity in user query FIRST ─────────────────────────────────
+       If the user explicitly asks about an activity (e.g. "walk me through 2.4",
+       "help with activity 2.4"), show the step/full mode card immediately without
+       waiting for a Yukon response. The summary is fetched lazily if they choose
+       "Show everything". This avoids the 9-second wait and the problem of Yukon
+       returning a prose summary before the mode choice is presented.          */
+    if (!isTellMeMore) {
+      const queryActivityId = detectActivityInQuery(actualContent);
+      if (queryActivityId) {
+        hideTyping();
+        state.loading = false;
+        updateSendBtn();
+        showStepModeCard(null, queryActivityId, collectionIds, yukonHost, state.imsToken, sendChat);
+        return;
+      }
+    }
+
     try {
       const text = await callYukon(
         state.messages,
@@ -1032,8 +1080,8 @@ export default function decorate(block) {
       );
       state.messages.push({ role: 'assistant', content: text });
       hideTyping();
+      /* Fallback: also check Yukon's response in case it proactively mentions an activity */
       const activityId = detectActivity(text);
-      const isTellMeMore = actualContent.startsWith('Give me more detail on this step');
       if (activityId && !isTellMeMore) {
         showStepModeCard(text, activityId, collectionIds, yukonHost, state.imsToken, sendChat);
       } else {
