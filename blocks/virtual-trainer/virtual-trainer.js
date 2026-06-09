@@ -161,7 +161,7 @@ async function callYukonExtract(activityId, collectionIds, yukonHost, imsToken) 
       response_format: {
         format: 'AUTO',
         style: 'CONCISE',
-        tone: 'NEUTRAL',
+        tone: 'EMPATHETIC',
         reasoning: 'DISABLED',
         custom_instructions: 'Return only raw JSON. No preamble, no citations, no markdown fences.',
       },
