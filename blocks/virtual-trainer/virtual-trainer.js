@@ -135,72 +135,59 @@ async function callYukonExtract(activityId, collectionIds, yukonHost, imsToken) 
     ? docs.find((d) => d.document_name && d.document_name.includes(docName)) : null;
   if (!doc?.document_id) throw new Error(`Document not found for activity ${activityId}`);
 
-  /* ── Step 2: Extract with correct schema ── */
-  const extractProperties = [
-    {
-      property_name: 'activity_title',
-      type: 'string',
-      description: 'The full title of the activity',
-      prompt: 'Extract the activity title exactly as written.',
-      strategy: 'STRICT',
-      extract_version: '2.0.0',
-    },
-    {
-      property_name: 'outcome',
-      type: 'string',
-      description: 'The intended learning outcome of the activity',
-      prompt: 'Extract the outcome field from the document frontmatter exactly as written.',
-      strategy: 'STRICT',
-      extract_version: '2.0.0',
-    },
-    {
-      property_name: 'steps_json',
-      type: 'string',
-      description: 'All numbered steps serialised as a JSON array string',
-      prompt: 'Return ALL numbered steps from the document as a valid JSON array string (no markdown fences). Each element must be an object with keys: step_number (integer), task (text after "Task:" label), detail (text after "Detail:" label), hint1 (text after "Hint 1:" or empty string), hint2 (text after "Hint 2:" or empty string), expected_result (text after "Expected result:"), common_mistake (text after "Common mistake:" or empty string), image_token (the {{img:...}} token if present or empty string). Copy all text verbatim from the document.',
-      strategy: 'INTERPRETIVE',
-      extract_version: '2.0.0',
-    },
-  ];
+  /* ── Step 2: Use targeted Q&A with document_ids to get structured steps ── */
+  /* The Extract API returns 500 on markdown docs with large array prompts.
+     Q&A with document_ids scoped to one file is more reliable.            */
+  const qaPrompt = 'Return the complete structured content of this activity guide as a single JSON object. '
+    + 'The JSON must have these keys: '
+    + 'title (string — the activity title), '
+    + 'outcome (string — the outcome from the frontmatter), '
+    + 'steps (array — every numbered step). '
+    + 'Each step object must have: step_number (integer), task (string — text after "Task:" label), '
+    + 'detail (string — text after "Detail:" label), hint1 (string — text after "Hint 1:" or empty), '
+    + 'hint2 (string — text after "Hint 2:" or empty), expected_result (string — text after "Expected result:"), '
+    + 'common_mistake (string — text after "Common mistake:" or empty), '
+    + 'image_token (string — the {{img:...}} token if present or empty). '
+    + 'Return ONLY the raw JSON object, no markdown fences, no explanation.';
 
-  const extractRes = await fetch(`${yukonHost}/api/v2/inference/extract`, {
+  const qaRes = await fetch(`${yukonHost}/api/v2/inference/question-answer`, {
     method: 'POST',
     headers: authHeaders,
     body: JSON.stringify({
+      request_id: crypto.randomUUID(),
+      collections: [activityCollection],
       document_ids: [doc.document_id],
-      document_namespace: activityCollection,
-      extract_properties: extractProperties,
+      inputs: qaPrompt,
+      response_format: {
+        format: 'AUTO',
+        style: 'CONCISE',
+        tone: 'NEUTRAL',
+        reasoning: 'DISABLED',
+        custom_instructions: 'Return only raw JSON. No preamble, no citations, no markdown fences.',
+      },
+      source_options: ['COLLECTION'],
+      inference_mode: 'STANDARD',
+      store: false,
+      enable_figures: false,
     }),
   });
 
-  if (!extractRes.ok) {
-    const errText = await extractRes.text().catch(() => extractRes.statusText);
-    throw new Error(`Yukon extract error ${extractRes.status}: ${errText}`);
+  if (!qaRes.ok) {
+    const errText = await qaRes.text().catch(() => qaRes.statusText);
+    throw new Error(`Yukon Q&A extract error ${qaRes.status}: ${errText}`);
   }
 
-  const data = await extractRes.json();
+  const qaData = await qaRes.json();
+  const rawText = (qaData?.generated_text || qaData?.answer?.text || qaData?.answer || '').toString();
+  const cleaned = rawText.replace(/\s*\[\^?\d+\]/g, '').replace(/^```[a-z]*\s*/im, '').replace(/```\s*$/m, '').trim();
 
-  /* Response: array of ExtractInferenceResponse, one per document.
-     Each has extracted_properties: [{ name, value, confidence }]    */
-  const docResult = Array.isArray(data) ? data[0] : data;
-  const props = docResult?.extracted_properties || [];
-  const extracted = {};
-  props.forEach((p) => { extracted[p.name] = p.value; });
-
-  /* steps_json is a JSON array string — strip any markdown fences */
-  let steps = [];
-  const stepsRaw = extracted.steps_json || '';
-  if (stepsRaw) {
-    try {
-      const cleaned = stepsRaw.replace(/^```[a-z]*\s*/i, '').replace(/```\s*$/, '').trim();
-      steps = JSON.parse(cleaned);
-    } catch { steps = []; }
-  }
+  let parsed = null;
+  try { parsed = JSON.parse(cleaned); } catch { parsed = null; }
 
   return {
-    title: extracted.activity_title || `Activity ${activityId}`,
-    outcome: extracted.outcome || '',
-    steps: Array.isArray(steps) ? steps : [],
+    title: parsed?.title || `Activity ${activityId}`,
+    outcome: parsed?.outcome || '',
+    steps: Array.isArray(parsed?.steps) ? parsed.steps : [],
   };
 }
 
