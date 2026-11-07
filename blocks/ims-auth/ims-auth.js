@@ -1,3 +1,5 @@
+import { ENABLE_IMS_AUTH } from '../../scripts/config.js';
+
 /**
  * IMS Auth Block
  *
@@ -106,6 +108,11 @@ function showGate(container) {
 
 /* ── Block entry point ── */
 export default function decorate(block) {
+  if (!ENABLE_IMS_AUTH) {
+    block.remove();
+    return;
+  }
+
   /* Read config from block table */
   const config = {};
   [...block.children].forEach((row) => {

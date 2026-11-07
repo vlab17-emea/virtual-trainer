@@ -22,3 +22,15 @@ This specific repo has been _slightly_ modified to be compatible with DA's live 
 1. Start the AEM CLI: `aem up`.
 1. Open the `{repo}` folder in your favorite code editor and buil something.
 1. **Recommended:** Install common npm packages like linting and testing: `npm i`.
+
+## Virtual Trainer authentication
+
+IMS sign-in for the Virtual Trainer is controlled by `ENABLE_IMS_AUTH` in
+[`scripts/config.js`](./scripts/config.js). It is `false` by default, which
+removes the IMS sign-in block, disables IMS-dependent UI and token handling, and
+sends Yukon requests without an IMS Authorization header. Set it to `true` to
+enable the existing Adobe IMS sign-in flow again.
+
+Without IMS authentication, the Virtual Trainer can only use Yukon services that
+allow requests without an IMS token. A service that requires authentication may
+reject those requests.

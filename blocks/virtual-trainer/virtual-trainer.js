@@ -1,8 +1,10 @@
+import { ENABLE_IMS_AUTH } from '../../scripts/config.js';
+
 /**
  * Virtual Trainer Block
  * EDS block — full-bleed AI-powered course assistant backed by Yukon RAG.
  *
- * DA authoring — add as a table on your page AFTER the ims-auth block:
+ * DA authoring — with IMS enabled, add the ims-auth table before this block.
  * | virtual-trainer |                                          |
  * | collection      | 0d3151f2-74ec-423e-9685-c1f79a6e7f5b   |
  * | collection2     | 153b1fb9-1d5d-4b77-b0ea-1fecaa376d95   |
@@ -10,7 +12,7 @@
  * | course          | EDS Document Authoring for Authors       |
  * | yukon           | https://yukon-stage.adobe.io             |
  *
- * Auth flow:
+ * Auth flow when ENABLE_IMS_AUTH is true:
  *   1. ims-auth block loads imslib and signs the user in
  *   2. ims-auth dispatches 'ims:ready' with { token }
  *   3. this block listens for 'ims:ready' and stores the token
@@ -19,11 +21,17 @@
  */
 
 /* ── Yukon API ───────────────────────────────────────────────────────────────
-   Calls the Yukon Stage Q&A inference endpoint with the user's IMS token.
+   Calls Yukon with an IMS token when authentication is enabled.
    The conversation history is maintained client-side; each call sends the
    full history so Yukon has context for follow-up questions.               */
+function fetchWithAuthMode(url, options = {}) {
+  const requestOptions = { ...options, headers: { ...options.headers } };
+  if (!ENABLE_IMS_AUTH) delete requestOptions.headers.Authorization;
+  return fetch(url, requestOptions);
+}
+
 async function callYukon(messages, collectionIds, yukonHost, imsToken, userInfo = {}) {
-  if (!imsToken) throw new Error('No IMS token available — please sign in.');
+  if (ENABLE_IMS_AUTH && !imsToken) throw new Error('No IMS token available — please sign in.');
 
   /* Build a single question string from the latest user message.
      Yukon Q&A is stateless per-call; we provide context in the question. */
@@ -44,7 +52,7 @@ async function callYukon(messages, collectionIds, yukonHost, imsToken, userInfo 
   const endpoint = `${yukonHost}/api/v2/inference/question-answer`;
   const collections = Array.isArray(collectionIds) ? collectionIds : [collectionIds];
 
-  const res = await fetch(endpoint, {
+  const res = await fetchWithAuthMode(endpoint, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${imsToken}`,
@@ -117,7 +125,7 @@ BEHAVIOUR:
 
 /* ── Yukon Extract API — fetches structured steps from activity document ── */
 async function callYukonExtract(activityId, collectionIds, yukonHost, imsToken) {
-  if (!imsToken) throw new Error('No IMS token available.');
+  if (ENABLE_IMS_AUTH && !imsToken) throw new Error('No IMS token available.');
 
   /* Collection 2 (index 1) contains the activity guides */
   const collections = Array.isArray(collectionIds) ? collectionIds : [collectionIds];
@@ -127,7 +135,7 @@ async function callYukonExtract(activityId, collectionIds, yukonHost, imsToken) 
   /* ── Step 1: Find the document UUID for this activity ── */
   const docName = `activity-${activityId.replace('.', '-')}`;
   const listUrl = `${yukonHost}/api/v2/collection/${activityCollection}/document?infix=${docName}&page_size=5`;
-  const listRes = await fetch(listUrl, { headers: authHeaders });
+  const listRes = await fetchWithAuthMode(listUrl, { headers: authHeaders });
   if (!listRes.ok) throw new Error(`Doc lookup failed ${listRes.status}`);
   const listData = await listRes.json();
   const docs = listData?.pages || listData?.items || listData || [];
@@ -151,7 +159,7 @@ async function callYukonExtract(activityId, collectionIds, yukonHost, imsToken) 
     + 'image_token (string — the {{img:...}} token if present or empty). '
     + 'Return ONLY the raw JSON object, no markdown fences, no explanation.';
 
-  const qaRes = await fetch(`${yukonHost}/api/v2/inference/question-answer`, {
+  const qaRes = await fetchWithAuthMode(`${yukonHost}/api/v2/inference/question-answer`, {
     method: 'POST',
     headers: authHeaders,
     body: JSON.stringify({
@@ -742,21 +750,25 @@ export default function decorate(block) {
   }
 
   function updateSendBtn() {
-    const active = textarea.value.trim().length > 0 && !state.loading && !!state.imsToken;
+    const active = textarea.value.trim().length > 0
+      && !state.loading
+      && (!ENABLE_IMS_AUTH || !!state.imsToken);
     sendBtn.classList.toggle('active', active);
     sendBtn.innerHTML = '';
     sendBtn.appendChild(svgSend(active));
   }
 
   /* ── IMS token listeners — registered after helpers are defined ── */
-  document.addEventListener('ims:ready', (e) => {
-    state.imsToken = e.detail?.token || null;
-    if (textarea) {
-      textarea.disabled = false;
-      textarea.placeholder = "Ask anything, or say 'done' to move to the next step…";
-      updateSendBtn();
-    }
-  });
+  if (ENABLE_IMS_AUTH) {
+    document.addEventListener('ims:ready', (e) => {
+      state.imsToken = e.detail?.token || null;
+      if (textarea) {
+        textarea.disabled = false;
+        textarea.placeholder = "Ask anything, or say 'done' to move to the next step…";
+        updateSendBtn();
+      }
+    });
+  }
 
   /* Helper — applies an IMS profile object to state and UI.
      Called from both the ims:profile event and the token poll fallback. */
@@ -794,18 +806,22 @@ export default function decorate(block) {
     }
   }
 
-  document.addEventListener('ims:profile', (e) => {
-    applyImsProfile(e.detail?.profile);
-  });
+  if (ENABLE_IMS_AUTH) {
+    document.addEventListener('ims:profile', (e) => {
+      applyImsProfile(e.detail?.profile);
+    });
+  }
 
-  document.addEventListener('ims:signedout', () => {
-    state.imsToken = null;
-    if (textarea) {
-      textarea.disabled = true;
-      textarea.placeholder = 'Please sign in to continue…';
-      updateSendBtn();
-    }
-  });
+  if (ENABLE_IMS_AUTH) {
+    document.addEventListener('ims:signedout', () => {
+      state.imsToken = null;
+      if (textarea) {
+        textarea.disabled = true;
+        textarea.placeholder = 'Please sign in to continue…';
+        updateSendBtn();
+      }
+    });
+  }
 
   const ISSUE_KEYWORDS = [
     'slow', 'performance', 'degradation', 'service status',
@@ -1200,7 +1216,7 @@ export default function decorate(block) {
   }
 
   async function sendChat(actualContent, displayContent) {
-    if (state.loading || !state.imsToken) return;
+    if (state.loading || (ENABLE_IMS_AUTH && !state.imsToken)) return;
     const display = displayContent || actualContent;
     state.messages.push({ role: 'user', content: actualContent });
     appendMessage({ role: 'user', content: display });
@@ -1230,7 +1246,7 @@ export default function decorate(block) {
 
     /* Ensure profile is resolved before every Yukon call — getProfile() returns
        from the IMS library's internal cache after auth, no network round-trip. */
-    if (!state.userName && window.adobeIMS?.getProfile) {
+    if (ENABLE_IMS_AUTH && !state.userName && window.adobeIMS?.getProfile) {
       try {
         const p = await window.adobeIMS.getProfile();
         if (p) applyImsProfile(p);
@@ -1267,7 +1283,7 @@ export default function decorate(block) {
 
   function send() {
     const text = textarea.value.trim();
-    if (!text || state.loading || !state.imsToken) return;
+    if (!text || state.loading || (ENABLE_IMS_AUTH && !state.imsToken)) return;
     textarea.value = '';
     textarea.style.height = 'auto';
     updateSendBtn();
@@ -1326,19 +1342,19 @@ export default function decorate(block) {
 
   userAvatarEl = document.createElement('div');
   userAvatarEl.className = 'vt-avatar';
-  userAvatarEl.textContent = '…';
-
-  /* Sign out link */
-  const signOutBtn = document.createElement('button');
-  signOutBtn.className = 'vt-sign-out';
-  signOutBtn.textContent = 'Sign out';
-  signOutBtn.addEventListener('click', () => {
-    if (window.adobeIMS) window.adobeIMS.signOut();
-  });
+  userAvatarEl.textContent = ENABLE_IMS_AUTH ? '…' : 'G';
 
   headerMeta.appendChild(headerCourse);
-  headerMeta.appendChild(userAvatarEl);
-  headerMeta.appendChild(signOutBtn);
+  if (ENABLE_IMS_AUTH) {
+    headerMeta.appendChild(userAvatarEl);
+    const signOutBtn = document.createElement('button');
+    signOutBtn.className = 'vt-sign-out';
+    signOutBtn.textContent = 'Sign out';
+    signOutBtn.addEventListener('click', () => {
+      if (window.adobeIMS) window.adobeIMS.signOut();
+    });
+    headerMeta.appendChild(signOutBtn);
+  }
   header.appendChild(wordmark);
   header.appendChild(divider);
   header.appendChild(headerTitle);
@@ -1529,8 +1545,10 @@ export default function decorate(block) {
   textarea = document.createElement('textarea');
   textarea.className = 'vt-textarea';
   textarea.rows = 1;
-  textarea.disabled = true;
-  textarea.placeholder = 'Signing in…';
+  textarea.disabled = ENABLE_IMS_AUTH;
+  textarea.placeholder = ENABLE_IMS_AUTH
+    ? 'Signing in…'
+    : "Ask anything, or say 'done' to move to the next step…";
 
   sendBtn = document.createElement('button');
   sendBtn.className = 'vt-send';
@@ -1571,27 +1589,31 @@ export default function decorate(block) {
   });
   sendBtn.addEventListener('click', send);
 
-  /* ── Poll for token if ims:ready already fired before this block registered ── */
-  const pollToken = setInterval(() => {
-    if (state.imsToken) { clearInterval(pollToken); return; }
-    if (!window.adobeIMS?.getAccessToken) return;
-    const tokenInfo = window.adobeIMS.getAccessToken();
-    const token = tokenInfo && (typeof tokenInfo === 'string' ? tokenInfo : tokenInfo.token);
-    if (token) {
-      clearInterval(pollToken);
-      state.imsToken = token;
-      textarea.disabled = false;
-      textarea.placeholder = "Ask anything, or say 'done' to move to the next step…";
-      updateSendBtn();
-      /* Grab profile from IMS cache — no network call after first auth */
-      if (!state.userName && window.adobeIMS.getProfile) {
-        window.adobeIMS.getProfile()
-          .then((p) => applyImsProfile(p))
-          .catch(() => {});
-      }
-    }
-  }, 200);
+  updateSendBtn();
 
-  /* Stop polling after 30s to avoid memory leak */
-  setTimeout(() => clearInterval(pollToken), 30000);
+  if (ENABLE_IMS_AUTH) {
+    /* Poll for token if ims:ready already fired before this block registered */
+    const pollToken = setInterval(() => {
+      if (state.imsToken) { clearInterval(pollToken); return; }
+      if (!window.adobeIMS?.getAccessToken) return;
+      const tokenInfo = window.adobeIMS.getAccessToken();
+      const token = tokenInfo && (typeof tokenInfo === 'string' ? tokenInfo : tokenInfo.token);
+      if (token) {
+        clearInterval(pollToken);
+        state.imsToken = token;
+        textarea.disabled = false;
+        textarea.placeholder = "Ask anything, or say 'done' to move to the next step…";
+        updateSendBtn();
+        /* Grab profile from IMS cache — no network call after first auth */
+        if (!state.userName && window.adobeIMS.getProfile) {
+          window.adobeIMS.getProfile()
+            .then((p) => applyImsProfile(p))
+            .catch(() => {});
+        }
+      }
+    }, 200);
+
+    /* Stop polling after 30s to avoid memory leak */
+    setTimeout(() => clearInterval(pollToken), 30000);
+  }
 }
